@@ -6,21 +6,41 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "seed:rubric": "tsx scripts/seed-rubric.ts",
+    "calibrate": "tsx scripts/calibrate.ts",
+    "stability": "tsx scripts/stability.ts",
+    "injection-fixture": "tsx scripts/injection-fixture.ts"
   },
   "dependencies": {
+    "@google/genai": "^2.24.0",
+    "@neondatabase/serverless": "^1.1.0",
+    "drizzle-orm": "^0.45.3",
+    "jose": "^6.2.12",
+    "mammoth": "^1.13.0",
     "next": "16.3.6",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "resend": "^6.30.0",
+    "unpdf": "^1.8.1",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^24.19.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/ui": "^5.0.2",
+    "dotenv": "^18.0.4",
+    "drizzle-kit": "^0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^5.0.2"
   }
 }

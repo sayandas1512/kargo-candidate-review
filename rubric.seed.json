@@ -1,0 +1,161 @@
+{
+  "source": "rubric.txt",
+  "global": {
+    "do_not_reward": [
+      "degrees, MBA, college or employer prestige",
+      "certifications",
+      "seniority of title",
+      "buzzwords",
+      "CV length or polish",
+      "feature or output counts with no adoption or outcome attached"
+    ],
+    "do_not_penalise": [
+      "non-product titles",
+      "non-traditional degrees",
+      "career switchers",
+      "small or unknown employers"
+    ]
+  },
+  "PM": {
+    "version": 1,
+    "weights_sum": 100,
+    "criteria": [
+      {
+        "criterion_key": "PM-1",
+        "name": "Lived freight / logistics operations experience",
+        "weight": 30,
+        "measures": "Has personally done the operational work in freight forwarding, customs/CHA, port, documentation or 3PL carrier operations. Not sold to it, built for it, or read about it.",
+        "anchors": {
+          "0": "no logistics exposure",
+          "2": "adjacent (e-commerce fulfilment, or built software for / sold into logistics) or under 1 yr hands-on",
+          "4": "2+ yrs hands-on in freight forwarding / customs / port / 3PL carrier ops, with named specifics (documents, carriers, ports, exceptions)"
+        },
+        "hire_evidence": "Rohan, Sunita, Aditya, Meghna, Lavanya (all Exceeds). Vikram, Rahul, Preetham have none.",
+        "probe": "Walk me through a shipment that went wrong and what you did."
+      },
+      {
+        "criterion_key": "PM-2",
+        "name": "Self-started fixes adopted beyond own remit",
+        "weight": 25,
+        "measures": "Spotted an unowned problem, built the fix unasked, and others adopted it without a mandate.",
+        "anchors": {
+          "0": "only assigned work",
+          "2": "built tools or processes, but used only within own team",
+          "4": "built at least one thing unasked that was adopted by other teams, with a measurable effect"
+        },
+        "hire_evidence": "Rohan (BoL tool), Sunita (weekend workflow redesign), Meghna (30-60-90 framework), Lavanya (dashboard, scorecard, triage).",
+        "probe": "What did you build that nobody asked for? Who ended up using it?"
+      },
+      {
+        "criterion_key": "PM-3",
+        "name": "Unmediated ownership of an outcome",
+        "weight": 20,
+        "measures": "Sole or top owner of a product area or outcome, with no senior layer making the calls and no intermediary between them and users.",
+        "anchors": {
+          "0": "contributor inside a structured team with layers above",
+          "2": "owns a module with some autonomy but a layer above sets direction",
+          "4": "sole owner; made and lived with consequential calls; early-stage or rules-not-written environment"
+        },
+        "hire_evidence": "Lavanya (sole PM), Rohan, Aditya, Meghna. Contrast: Vikram (4-PM team, CTO/VP sales layer), Preetham (1 of 12 engineers).",
+        "probe": "Tell me about a call you made where nobody could overrule you."
+      },
+      {
+        "criterion_key": "PM-4",
+        "name": "Decisions from evidence: shipped, killed, learned, documented",
+        "weight": 15,
+        "measures": "Ships and kills based on usage data or outcomes, and writes down why. Shipping volume alone does not count.",
+        "anchors": {
+          "0": "no evidence of measurement or of stopping anything",
+          "2": "tracks metrics on shipped work, no evidence of killing or pivoting",
+          "4": "killed or pivoted on data, documented the reasoning, outcome stated"
+        },
+        "hire_evidence": "Lavanya (killed 2 features on usage data, wrote the outage post-mortem), Aditya (loss post-mortem, root cause documented).",
+        "probe": "What did you kill, and what told you to?"
+      },
+      {
+        "criterion_key": "PM-5",
+        "name": "Direct contact with the people who use the product",
+        "weight": 10,
+        "measures": "Discovery straight with end users, unmediated by sales, CS or research teams.",
+        "anchors": {
+          "0": "no user contact described",
+          "2": "structured research, or user contact mediated by others",
+          "4": "repeated direct contact that led to a product change with a measured result"
+        },
+        "hire_evidence": "Lavanya (3 parallel discovery tracks with forwarders), Meghna, Aditya.",
+        "probe": "What did the last user you spoke to tell you that surprised you?"
+      }
+    ]
+  },
+  "SPM": {
+    "version": 1,
+    "weights_sum": 100,
+    "criteria": [
+      {
+        "criterion_key": "SPM-1",
+        "name": "Lived freight / logistics operations experience",
+        "weight": 25,
+        "measures": "Same definition and anchors as PM-1. Weighted slightly lower than for PM because SPM-2 separately covers technical depth. Preetham shows that integration knowledge from outside the domain does not substitute.",
+        "anchors": {
+          "0": "no logistics exposure",
+          "2": "adjacent (e-commerce fulfilment, or built software for / sold into logistics) or under 1 yr hands-on",
+          "4": "2+ yrs hands-on in freight forwarding / customs / port / 3PL carrier ops, with named specifics (documents, carriers, ports, exceptions)"
+        },
+        "hire_evidence": "Same evidence base as PM-1.",
+        "probe": "Where in a forwarder's day do integrations break first?"
+      },
+      {
+        "criterion_key": "SPM-2",
+        "name": "Integration / platform / data-layer judgment",
+        "weight": 20,
+        "measures": "Decisions about how a product connects to messy external systems (carriers, ports, ERP, customer tools), including what to build, configure, or stay away from.",
+        "anchors": {
+          "0": "no integration or platform exposure",
+          "2": "worked with or contributed to integrations, did not own the decisions",
+          "4": "owned build / buy / configure / avoid decisions on an integration or data layer, with consequences and results stated"
+        },
+        "hire_evidence": "Rohan (led a vendor migration after finding reliability issues, 60% lower lag, no data loss), Lavanya (carrier integration work, first API docs, integration timelines cut by 2 weeks). Preetham has deep technical work but rates Below, so this is capped at 20.",
+        "probe": "What did you decide not to integrate, and why?"
+      },
+      {
+        "criterion_key": "SPM-3",
+        "name": "Unmediated ownership with consequences",
+        "weight": 20,
+        "measures": "Same definition as PM-3, at senior scope: owned a product area without senior PMs above, and lived with the outcome.",
+        "anchors": {
+          "0": "contributor inside a structured team with layers above",
+          "2": "owns a module with some autonomy but a layer above sets direction",
+          "4": "sole owner; made and lived with consequential calls; early-stage or rules-not-written environment"
+        },
+        "hire_evidence": "Same evidence base as PM-3.",
+        "probe": "Which decision of yours do you still live with today?"
+      },
+      {
+        "criterion_key": "SPM-4",
+        "name": "Builds the practices others adopt",
+        "weight": 20,
+        "measures": "Created standards, frameworks or decision processes that outlasted them and were adopted without a mandate. The SPM JD asks the person to help define how the PM function works.",
+        "anchors": {
+          "0": "follows existing process only",
+          "2": "improved a team process",
+          "4": "created a standard or framework from nothing that others adopted, with a measurable effect"
+        },
+        "hire_evidence": "Meghna (30-60-90 framework), Sunita (SOPs adopted in full in 60 days), Rohan (code review and on-call, 40% fewer P1s), Lavanya (scorecard methodology, first API docs).",
+        "probe": "What standard did you create that people still follow?"
+      },
+      {
+        "criterion_key": "SPM-5",
+        "name": "Reliability and root-cause ownership under pressure",
+        "weight": 15,
+        "measures": "Finds the real cause of a systemic failure, fixes it fast, owns follow-up to closure.",
+        "anchors": {
+          "0": "no incident or quality ownership described",
+          "2": "participated in incident response or quality work",
+          "4": "led root-cause work on a systemic issue, fixed it, prevented recurrence, with results stated"
+        },
+        "hire_evidence": "Rohan (root cause in 3 hrs, same-day fix), Sunita (pre-inspection audit found 4 gaps), Lavanya (outage post-mortem owned to closure). Preetham also shows this and rates Below, so it is weighted lower and not sufficient alone.",
+        "probe": "Tell me about the worst data-quality failure you owned."
+      }
+    ]
+  }
+}

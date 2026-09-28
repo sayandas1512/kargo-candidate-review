@@ -1,0 +1,13 @@
+{
+  "note": "Ratings are the 'Last Rating' column in the Case 2 pre-read (rubric.txt section 1). approx_pm_score is the analyst hand-scored back-test from rubric.txt section 6 -- an in-sample fit check, not validation.",
+  "hires": [
+    { "file": "cv_07_lavanya_iyer.docx", "name": "Lavanya Iyer", "role": "Product Manager", "rating": "Exceeds", "approx_pm_score": 100 },
+    { "file": "cv_01_rohan_desai.docx", "name": "Rohan Desai", "role": "Head of Engineering", "rating": "Exceeds", "approx_pm_score": 89 },
+    { "file": "cv_06_meghna_tiwari.docx", "name": "Meghna Tiwari", "role": "Customer Success Manager", "rating": "Exceeds", "approx_pm_score": 88 },
+    { "file": "cv_02_sunita_krishnamurthy.docx", "name": "Sunita Krishnamurthy", "role": "Operations Lead", "rating": "Exceeds", "approx_pm_score": 85 },
+    { "file": "cv_04_aditya_shetty.docx", "name": "Aditya Shetty", "role": "Sales Lead", "rating": "Exceeds", "approx_pm_score": 83 },
+    { "file": "cv_08_rahul_bose.docx", "name": "Rahul Bose", "role": "Growth & Marketing Lead", "rating": "Meets", "approx_pm_score": 48 },
+    { "file": "cv_03_vikram_nair.docx", "name": "Vikram Nair", "role": "Product Manager", "rating": "Meets", "approx_pm_score": 41 },
+    { "file": "cv_05_preetham_rao.docx", "name": "Preetham Rao", "role": "Backend Engineer", "rating": "Below", "approx_pm_score": 38 }
+  ]
+}

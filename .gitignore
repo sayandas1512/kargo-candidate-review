@@ -32,6 +32,16 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# neon
+.neon
+
+# calibration source CVs (contain real past-hire PII)
+calibration/hires/
+
+# local upload scratch (if any)
+.uploads/
 
 # vercel
 .vercel
