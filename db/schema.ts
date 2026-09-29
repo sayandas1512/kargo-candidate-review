@@ -46,16 +46,19 @@ export const decisionEnum = pgEnum("decision", ["advance", "hold", "decline"]);
 
 export const emailModeEnum = pgEnum("email_mode", ["test", "live"]);
 
-// The neon-http driver returns bytea over the wire as a Postgres hex-escape
-// string ("\x48656c6c6f"), not a raw Buffer, so this type converts both ways.
-const bytea = customType<{ data: Buffer; driverData: string }>({
+// bytea comes back differently depending on how the query ran: a raw
+// neon() tagged-template call returns an actual Buffer, but drizzle's own
+// query builder (db.select()) returns the Postgres hex-escape string
+// ("\x48656c6c6f") -- handle both rather than assume one.
+const bytea = customType<{ data: Buffer; driverData: string | Buffer }>({
   dataType() {
     return "bytea";
   },
   toDriver(value: Buffer): string {
     return "\\x" + value.toString("hex");
   },
-  fromDriver(value: string): Buffer {
+  fromDriver(value: string | Buffer): Buffer {
+    if (Buffer.isBuffer(value)) return value;
     if (value.startsWith("\\x")) return Buffer.from(value.slice(2), "hex");
     return Buffer.from(value, "hex");
   },
