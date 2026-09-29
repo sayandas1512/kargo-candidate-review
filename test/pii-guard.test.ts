@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractPII, redactCV, leakCheck, guessNameFromCV } from "@/lib/pii-guard";
+import { extractPII, redactCV, leakCheck, guessNameFromCV, isPlausibleName } from "@/lib/pii-guard";
 
 const IDENTITY = { fullName: "Rohan Desai", email: "rohan.desai@example.com", phone: "+91 98765 43210" };
 
@@ -123,5 +123,28 @@ describe("guessNameFromCV", () => {
     const redacted = redactCV(cv, identity);
     expect(leakCheck(redacted, identity)).toEqual({ ok: true });
     expect(redacted.toLowerCase()).not.toContain("priya");
+  });
+});
+
+describe("isPlausibleName", () => {
+  it("accepts a real-looking two-word name", () => {
+    expect(isPlausibleName("Arnav Sen")).toBe(true);
+  });
+
+  it("rejects a resume section header even if title-cased", () => {
+    expect(isPlausibleName("Professional Synopsis")).toBe(false);
+    expect(isPlausibleName("PROFESSIONAL SYNOPSIS")).toBe(false);
+  });
+
+  it("rejects a single word", () => {
+    expect(isPlausibleName("Professional")).toBe(false);
+  });
+
+  it("is the unconditional final gate -- catches a bad name regardless of how it was produced", () => {
+    // Simulates whatever upstream computation might (for any reason, known
+    // or not) hand a section header to the ingest pipeline as if it were a
+    // guessed name -- this must never be trusted, full stop.
+    const suspiciousUpstreamValue = "PROFESSIONAL SYNOPSIS";
+    expect(isPlausibleName(suspiciousUpstreamValue)).toBe(false);
   });
 });

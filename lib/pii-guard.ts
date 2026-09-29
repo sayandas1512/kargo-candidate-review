@@ -109,6 +109,22 @@ export function guessNameFromCV(text: string, filename: string): string | null {
   return fromHeader ?? fromFilename;
 }
 
+/**
+ * Unconditional final gate: is `name` plausible as a person's name at all?
+ * Independent of how it was computed -- callers MUST run any guessed name
+ * through this immediately before persisting it as identity, so that no
+ * upstream bug (known or not yet found) can result in a resume section
+ * header or similar non-name string being stored and treated as a real
+ * identity. This is deliberately redundant with the checks inside
+ * guessNameFromCV; redundant checks are the point.
+ */
+export function isPlausibleName(name: string): boolean {
+  const trimmed = name.trim();
+  if (!namePattern.test(trimmed)) return false;
+  if (SECTION_HEADER_RE.test(trimmed)) return false;
+  return true;
+}
+
 function nameTokens(name: string): string[] {
   return name.split(/\s+/).filter((t) => t.length >= 3);
 }

@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { candidates, candidateFiles, candidatePersonalDetails } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { ingestFile, hashBytes } from "../ingest";
-import { extractPII, guessNameFromCV, redactCV, leakCheck } from "../pii-guard";
+import { extractPII, guessNameFromCV, redactCV, leakCheck, isPlausibleName } from "../pii-guard";
 import { logAudit } from "../audit";
 
 export type IngestOutcome =
@@ -46,7 +46,17 @@ export async function runIngestStage(
   }
 
   const { text, mime } = parsed;
-  const guessedName = guessNameFromCV(text, originalFilename);
+  const rawGuess = guessNameFromCV(text, originalFilename);
+  // Unconditional final gate -- see isPlausibleName's doc comment. Never
+  // trust rawGuess directly, no matter how it was computed.
+  const guessedName = rawGuess && isPlausibleName(rawGuess) ? rawGuess : null;
+  if (rawGuess && !guessedName) {
+    await logAudit({
+      event: "ingest.implausible_name_guess_rejected",
+      actor: "system",
+      meta: { originalFilename, rejected: rawGuess },
+    });
+  }
   const pii = extractPII(text);
 
   const [row] = await db
