@@ -1,4 +1,6 @@
-import "dotenv/config";
+import { config as loadEnv } from "dotenv";
+loadEnv({ path: ".env.local" });
+loadEnv();
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
 import { scoreCandidateAgainstRubric } from "../lib/ai/score";

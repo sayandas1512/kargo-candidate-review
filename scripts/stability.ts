@@ -1,4 +1,6 @@
-import "dotenv/config";
+import { config as loadEnv } from "dotenv";
+loadEnv({ path: ".env.local" });
+loadEnv();
 import { join } from "node:path";
 import { scoreCandidateAgainstRubric } from "../lib/ai/score";
 import { loadRubricSeed } from "./lib/load-rubric";
