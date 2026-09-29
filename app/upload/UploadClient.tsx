@@ -34,6 +34,15 @@ export default function UploadClient() {
   const [items, setItems] = useState<FileItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const runningRef = useRef(false);
+  // runQueue's while-loop must see live state, not the array it closed over
+  // when it started -- setItem() updates from an in-flight processOne() never
+  // reach a stale closure, so the loop would keep re-filtering the same
+  // snapshot and reprocess already-finished items forever. Reading a ref kept
+  // in sync via the effect below sidesteps that.
+  const itemsRef = useRef<FileItem[]>([]);
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
 
   useEffect(() => {
     fetch("/api/settings/attest")
@@ -61,7 +70,7 @@ export default function UploadClient() {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
   }, []);
 
-  async function processOne(item: FileItem) {
+  const processOne = useCallback(async (item: FileItem) => {
     try {
       setItem(item.id, { stage: "ingesting", error: undefined });
       const form = new FormData();
@@ -97,14 +106,14 @@ export default function UploadClient() {
     } catch (err) {
       setItem(item.id, { stage: "error", error: String(err) });
     }
-  }
+  }, [setItem]);
 
   const runQueue = useCallback(async () => {
     if (runningRef.current) return;
     runningRef.current = true;
 
     for (;;) {
-      const pending = items.filter((it) => it.stage === "queued");
+      const pending = itemsRef.current.filter((it) => it.stage === "queued");
       if (pending.length === 0) break;
       const batch = pending.slice(0, CONCURRENCY);
       await Promise.all(batch.map((it) => processOne(it)));
@@ -112,8 +121,7 @@ export default function UploadClient() {
 
     runningRef.current = false;
     await fetchWithBackoff("/api/finalize", { method: "POST" }).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items]);
+  }, [processOne]);
 
   function retry(id: string) {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, stage: "queued", error: undefined } : it)));
