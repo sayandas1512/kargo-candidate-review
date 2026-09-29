@@ -130,20 +130,20 @@ export default function UploadClient() {
 
   if (attested === false) {
     return (
-      <div className="rounded border bg-white p-6">
-        <h2 className="mb-2 font-semibold">Before you upload</h2>
+      <div className="rounded-xl border-l-4 border-amber-400 border-y border-r border-gray-200 bg-amber-50/40 p-6 shadow-sm">
+        <h2 className="mb-2 font-semibold text-gray-900">Before you upload</h2>
         <p className="mb-4 text-sm text-gray-600">
           The Gemini key belongs to a project with billing enabled (free tier may use inputs to improve Google&apos;s
           models).
         </p>
-        <label className="mb-4 flex items-center gap-2 text-sm">
+        <label className="mb-4 flex items-center gap-2 text-sm text-gray-700">
           <input type="checkbox" checked={attestChecked} onChange={(e) => setAttestChecked(e.target.checked)} />
           I understand
         </label>
         <button
           disabled={!attestChecked}
           onClick={confirmAttestation}
-          className="rounded bg-black px-4 py-2 text-white disabled:opacity-40"
+          className="rounded-lg bg-amber-600 px-4 py-2 font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-40"
         >
           Continue
         </button>
@@ -166,10 +166,10 @@ export default function UploadClient() {
           setDragOver(false);
           if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
         }}
-        className={`flex flex-col items-center justify-center rounded border-2 border-dashed p-12 text-center ${dragOver ? "border-black bg-gray-50" : "border-gray-300"}`}
+        className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-12 text-center transition-colors ${dragOver ? "border-indigo-400 bg-indigo-50" : "border-gray-300 bg-white"}`}
       >
-        <p className="mb-2 text-sm text-gray-500">Drag & drop PDF or DOCX files, or</p>
-        <label className="cursor-pointer rounded border px-4 py-2 text-sm">
+        <p className="mb-3 text-sm text-gray-500">Drag &amp; drop PDF or DOCX files, or</p>
+        <label className="cursor-pointer rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700">
           Choose files
           <input
             type="file"
@@ -182,9 +182,9 @@ export default function UploadClient() {
       </div>
 
       {items.length > 0 && (
-        <div className="overflow-hidden rounded border bg-white">
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
+            <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-400">
               <tr>
                 <th className="px-3 py-2">File</th>
                 <th className="px-3 py-2">Role</th>
@@ -194,14 +194,14 @@ export default function UploadClient() {
             </thead>
             <tbody>
               {items.map((it) => (
-                <tr key={it.id} className="border-t">
-                  <td className="px-3 py-2">{it.file.name}</td>
+                <tr key={it.id} className="border-t border-gray-100">
+                  <td className="px-3 py-2 text-gray-700">{it.file.name}</td>
                   <td className="px-3 py-2">
                     <select
                       value={it.role}
                       disabled={it.stage !== "queued"}
                       onChange={(e) => setRole(it.id, e.target.value as "PM" | "SPM")}
-                      className="rounded border px-2 py-1"
+                      className={`rounded-full border-0 px-2.5 py-1 text-xs font-medium ${it.role === "PM" ? "bg-indigo-100 text-indigo-800" : "bg-violet-100 text-violet-800"}`}
                     >
                       <option value="PM">PM</option>
                       <option value="SPM">SPM</option>
@@ -209,17 +209,19 @@ export default function UploadClient() {
                   </td>
                   <td className="px-3 py-2">
                     {it.stage === "error" ? (
-                      <span className="text-red-600">{it.error}</span>
-                    ) : (
-                      <span>
+                      <span className="font-medium text-rose-600">{it.error}</span>
+                    ) : it.stage === "done" ? (
+                      <span className="font-medium text-emerald-600">
                         {it.stage}
-                        {it.note ? ` (${it.note})` : ""}
+                        {it.note ? ` (${it.note.replace(/_/g, " ")})` : ""}
                       </span>
+                    ) : (
+                      <span className="font-medium text-sky-600">{it.stage}</span>
                     )}
                   </td>
                   <td className="px-3 py-2">
                     {it.stage === "error" && (
-                      <button onClick={() => retry(it.id)} className="text-blue-700 hover:underline">
+                      <button onClick={() => retry(it.id)} className="font-medium text-indigo-600 hover:underline">
                         Retry
                       </button>
                     )}
@@ -232,7 +234,10 @@ export default function UploadClient() {
       )}
 
       {items.some((it) => it.stage === "queued") && (
-        <button onClick={startUpload} className="rounded bg-black px-4 py-2 text-white">
+        <button
+          onClick={startUpload}
+          className="rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white transition-colors hover:bg-indigo-700"
+        >
           Start upload
         </button>
       )}
