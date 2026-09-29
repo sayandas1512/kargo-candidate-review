@@ -9,6 +9,23 @@ import type { CriterionResult } from "../ai/score";
 
 type SeededCriterion = RubricCriterionWithProbe & { weight: number };
 
+/**
+ * Runs `fn` over `items` with at most `limit` in flight at once. finalize
+ * processes every scored candidate (brief + draft generation, each a Gemini
+ * call), which is too slow run fully sequentially once there's more than a
+ * couple of candidates -- this is what keeps it inside the function timeout.
+ */
+async function mapWithConcurrency<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
+  let index = 0;
+  async function worker() {
+    while (index < items.length) {
+      const i = index++;
+      await fn(items[i]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+}
+
 async function activeRubricCriteria(role: "PM" | "SPM") {
   const [rubric] = await db
     .select()
@@ -134,28 +151,30 @@ export async function runFinalizeStage(): Promise<{ processed: number }> {
     const ranked = rankCandidates(rankable, topKey);
     const shortlistIds = new Set(ranked.slice(0, shortlistSize()).map((r) => r.candidateId));
 
-    for (const row of rows) {
+    await mapWithConcurrency(rows, 3, async (row) => {
       const desiredKind: "invite" | "rejection" = shortlistIds.has(row.candidateId) ? "invite" : "rejection";
       const cvContent = row.cvContent as { roles: { title: string; employer: string }[]; skills: string[] };
       const identity = { fullName: row.fullName, email: row.email, phone: row.phone };
 
-      if (desiredKind === "invite") {
-        await ensureBrief({
-          candidateId: row.candidateId,
-          criteria: row.criteria as CriterionResult[],
-          rubricCriteria,
-          cvContent,
-          identity,
-        });
-      }
-
-      await ensureDraft({ candidateId: row.candidateId, desiredKind, role, cvContent, identity });
+      // Brief and draft are independent Gemini calls -- run them together.
+      await Promise.all([
+        desiredKind === "invite"
+          ? ensureBrief({
+              candidateId: row.candidateId,
+              criteria: row.criteria as CriterionResult[],
+              rubricCriteria,
+              cvContent,
+              identity,
+            })
+          : Promise.resolve(),
+        ensureDraft({ candidateId: row.candidateId, desiredKind, role, cvContent, identity }),
+      ]);
 
       if (row.status === "scored") {
         await db.update(candidates).set({ status: "ready" }).where(eq(candidates.id, row.candidateId));
       }
       processed++;
-    }
+    });
   }
 
   return { processed };
