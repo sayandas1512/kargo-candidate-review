@@ -7,8 +7,12 @@ export type ExtractedPII = {
 
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 const URL_RE = /\bhttps?:\/\/[^\s,)]+/gi;
-// Handles like linkedin.com/in/foo, github.com/foo, @foo (without a preceding domain)
-const BARE_HANDLE_RE = /\b(?:linkedin\.com\/in\/|github\.com\/|twitter\.com\/|x\.com\/)[a-zA-Z0-9\-_.]+/gi;
+// Any bare "domain.tld/path" reference without an http(s):// prefix -- covers
+// linkedin.com/in/foo, github.com/foo, leetcode.com/foo, personal portfolio
+// domains, and anything else shaped like a profile link. Deliberately broad:
+// a rare over-match (redacting a non-PII domain-shaped token) is the safe
+// direction; an under-match is a PII leak.
+const BARE_HANDLE_RE = /\b[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.[a-zA-Z]{2,6}\/[a-zA-Z0-9._\-/]+/g;
 const AT_HANDLE_RE = /(?<![a-zA-Z0-9._%+-])@[a-zA-Z][a-zA-Z0-9_]{2,30}\b/g;
 // Phone numbers: sequences of digits/spaces/dashes/dots/parens of length 7-15 digits,
 // optionally prefixed with +country code.
@@ -116,14 +120,19 @@ export function redactCV(
 /**
  * Leak check: no identity token may remain in `text`. Must pass before any
  * AI call — see assertNoPII in lib/ai/gemini.ts, which calls the same logic.
+ * Name tokens are matched as a plain substring (no \b boundary): a name
+ * fused into an unredacted handle like "leetcode.com/preethamrao" has no
+ * word boundary before "rao", but it is still a leak. Over-flagging a
+ * coincidental substring is the safe failure mode (needs_manual_review);
+ * missing a real leak is not.
  */
 export function leakCheck(
   text: string,
   identity: { fullName?: string | null; email?: string | null; phone?: string | null },
 ): { ok: true } | { ok: false; matched: string } {
+  const lowerText = text.toLowerCase();
   for (const token of nameTokens(identity.fullName ?? "")) {
-    const re = new RegExp(`\\b${token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
-    if (re.test(text)) return { ok: false, matched: token };
+    if (lowerText.includes(token.toLowerCase())) return { ok: false, matched: token };
   }
   if (identity.email) {
     const re = new RegExp(identity.email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
