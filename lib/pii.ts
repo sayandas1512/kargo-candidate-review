@@ -43,6 +43,18 @@ export function extractPII(text: string): ExtractedPII {
  * and the filename. Returns null if it cannot find a confident match, in
  * which case the caller must route the candidate to needs_identity_check.
  */
+// Common resume section headers. A line matching one of these is never a
+// name, AND it marks the end of the "header area" -- once we've reached it,
+// nothing further down the page (job titles, institution names, degree
+// lines, etc.) is considered a name candidate either, even if it happens to
+// look title-cased like one (e.g. "IMT Ghaziabad" under an EDUCATION
+// header). Real names sit above the first section header; a name that only
+// appears elsewhere (a footer watermark, a references section) is exactly
+// the low-confidence case that must fall through to needs_identity_check
+// rather than be guessed wrong.
+const SECTION_HEADER_RE =
+  /^(professional\s+)?(summary|synopsis|profile|objective|overview)$|^(career\s+)?objective$|^education(al)?( background)?$|^(work\s+|professional\s+)?experience$|^employment( history)?$|^(core\s+)?(competenc(y|ies)|skills?|strengths?)$|^(technical\s+)?skills?$|^certifications?$|^projects?$|^achievements?$|^awards?$|^publications?$|^languages?$|^references?$|^declaration$|^personal\s+details$|^contact( info(rmation)?)?$|^(professional\s+)?development( (&|and) skills)?$|^training$|^interests?$|^hobbies$|^volunteer(ing)?$|^leadership$|^summary of qualifications$/i;
+
 export function guessNameFromCV(text: string, filename: string): string | null {
   const lines = text
     .split(/\r?\n/)
@@ -53,7 +65,9 @@ export function guessNameFromCV(text: string, filename: string): string | null {
   const namePattern = /^[A-Z][a-zA-Z'.-]+(\s+[A-Z][a-zA-Z'.-]+){1,3}$/;
   for (const line of lines) {
     const stripped = line.replace(/[|,•·]+/g, " ").trim();
+    if (SECTION_HEADER_RE.test(stripped)) break; // past the header area -- stop looking
     const candidate = stripped.split(/\s{2,}|\t/)[0].trim();
+    if (SECTION_HEADER_RE.test(candidate)) break;
     if (namePattern.test(candidate) && candidate.split(/\s+/).length <= 4) {
       return candidate;
     }
@@ -110,7 +124,13 @@ export function redactCV(
   });
 
   for (const token of nameTokens(identity.fullName)) {
-    const re = new RegExp(`\\b${token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi");
+    // No \b boundary: some PDF extractions fuse adjacent text runs with no
+    // whitespace (e.g. a name repeated in a watermark as "SHARMAPriya"), so
+    // a name token can appear with no word boundary on one side. A plain
+    // substring match is the safe direction here -- over-redacting a rare
+    // unrelated word that happens to contain the name is far better than
+    // leaving real PII in text that gets sent to Gemini.
+    const re = new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
     redacted = redacted.replace(re, "[REDACTED]");
   }
 

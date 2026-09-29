@@ -74,4 +74,33 @@ describe("guessNameFromCV", () => {
     const noHeader = "Experience:\n- Did things.\n- Did more things.";
     expect(guessNameFromCV(noHeader, "cv_07_lavanya_iyer.docx")).toBe("Lavanya Iyer");
   });
+
+  it("does not mistake a section header for a name (real leak found in production)", () => {
+    const cv = "Strategic & Marketing Lead\nPROFESSIONAL SUMMARY\nA marketer with 8+ years of experience.";
+    // No name in the header area at all, and the filename has no real name either --
+    // must fall through to null (needs_identity_check), never guess the header text.
+    expect(guessNameFromCV(cv, "resume.pdf")).toBeNull();
+  });
+
+  it("stops scanning for a name once a section header is reached, even if a later line looks name-shaped", () => {
+    const cv = "Strategy & Operations Leader\nEDUCATION\nPGDM (Full-Time)\nIMT Ghaziabad | 2022 - 2024";
+    // "IMT Ghaziabad" is title-cased and regex-shaped like a name, but it's an
+    // institution under EDUCATION, past the header area -- must not be guessed.
+    expect(guessNameFromCV(cv, "resume.pdf")).toBeNull();
+  });
+
+  it("falls through to the filename once the header is correctly rejected", () => {
+    const cv = "PROFESSIONAL SYNOPSIS\nProduct leader with 17 years of experience.";
+    expect(guessNameFromCV(cv, "03_arnav_sen.pdf")).toBe("Arnav Sen");
+  });
+
+  it("redacts a name even when a PDF extraction artifact fuses it to the previous word with no space", () => {
+    // Real production case: a footer watermark extracted as "SHARMAPriya Sharma"
+    // (name repeated twice, glued together with no whitespace boundary).
+    const identity = { fullName: "Priya Sharma", email: null, phone: null };
+    const cv = "Some CV content here.\nPRIYA SHARMAPriya Sharma\nsquad_1@pg27.";
+    const redacted = redactCV(cv, identity);
+    expect(leakCheck(redacted, identity)).toEqual({ ok: true });
+    expect(redacted.toLowerCase()).not.toContain("priya");
+  });
 });
