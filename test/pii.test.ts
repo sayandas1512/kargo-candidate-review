@@ -94,6 +94,27 @@ describe("guessNameFromCV", () => {
     expect(guessNameFromCV(cv, "03_arnav_sen.pdf")).toBe("Arnav Sen");
   });
 
+  it("distrusts a header guess that disagrees with the filename-derived name", () => {
+    // Caught live in production: PDF text extraction for one specific file
+    // was observed to intermittently return a wrong, title-case-shaped
+    // header guess even after the section-header blocklist fix (root cause
+    // in the PDF parser was never fully pinned down). This is the safety
+    // net: when a header guess and a filename guess share no token, the
+    // header guess is untrusted and the filename wins instead.
+    const cv = "Global Delivery Office\nProduct leader with 17 years of experience.";
+    expect(guessNameFromCV(cv, "03_arnav_sen.pdf")).toBe("Arnav Sen");
+  });
+
+  it("trusts the header guess when it corroborates the filename", () => {
+    const cv = "Arnav Sen\nProduct leader with 17 years of experience.";
+    expect(guessNameFromCV(cv, "03_arnav_sen.pdf")).toBe("Arnav Sen");
+  });
+
+  it("trusts the header guess alone when the filename gives no name to cross-check against", () => {
+    const cv = "Arnav Sen\nProduct leader with 17 years of experience.";
+    expect(guessNameFromCV(cv, "resume_final.pdf")).toBe("Arnav Sen");
+  });
+
   it("redacts a name even when a PDF extraction artifact fuses it to the previous word with no space", () => {
     // Real production case: a footer watermark extracted as "SHARMAPriya Sharma"
     // (name repeated twice, glued together with no whitespace boundary).

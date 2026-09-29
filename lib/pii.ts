@@ -55,14 +55,15 @@ export function extractPII(text: string): ExtractedPII {
 const SECTION_HEADER_RE =
   /^(professional\s+)?(summary|synopsis|profile|objective|overview)$|^(career\s+)?objective$|^education(al)?( background)?$|^(work\s+|professional\s+)?experience$|^employment( history)?$|^(core\s+)?(competenc(y|ies)|skills?|strengths?)$|^(technical\s+)?skills?$|^certifications?$|^projects?$|^achievements?$|^awards?$|^publications?$|^languages?$|^references?$|^declaration$|^personal\s+details$|^contact( info(rmation)?)?$|^(professional\s+)?development( (&|and) skills)?$|^training$|^interests?$|^hobbies$|^volunteer(ing)?$|^leadership$|^summary of qualifications$/i;
 
-export function guessNameFromCV(text: string, filename: string): string | null {
+const namePattern = /^[A-Z][a-zA-Z'.-]+(\s+[A-Z][a-zA-Z'.-]+){1,3}$/;
+
+function headerGuess(text: string): string | null {
   const lines = text
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean)
     .slice(0, 8);
 
-  const namePattern = /^[A-Z][a-zA-Z'.-]+(\s+[A-Z][a-zA-Z'.-]+){1,3}$/;
   for (const line of lines) {
     const stripped = line.replace(/[|,•·]+/g, " ").trim();
     if (SECTION_HEADER_RE.test(stripped)) break; // past the header area -- stop looking
@@ -72,8 +73,10 @@ export function guessNameFromCV(text: string, filename: string): string | null {
       return candidate;
     }
   }
+  return null;
+}
 
-  // Fall back to the filename: e.g. "cv_01_rohan_desai.docx" -> "Rohan Desai"
+function filenameGuess(filename: string): string | null {
   const base = filename.replace(/\.(docx|pdf)$/i, "");
   const tokens = base
     .split(/[_\-.\s]+/)
@@ -82,8 +85,28 @@ export function guessNameFromCV(text: string, filename: string): string | null {
     const guess = tokens.map((t) => t[0].toUpperCase() + t.slice(1).toLowerCase()).join(" ");
     if (namePattern.test(guess)) return guess;
   }
-
   return null;
+}
+
+function sharesToken(a: string, b: string): boolean {
+  const tokensA = new Set(a.toLowerCase().split(/\s+/));
+  return b.toLowerCase().split(/\s+/).some((t) => tokensA.has(t));
+}
+
+export function guessNameFromCV(text: string, filename: string): string | null {
+  const fromHeader = headerGuess(text);
+  const fromFilename = filenameGuess(filename);
+
+  if (fromHeader && fromFilename) {
+    // Two independent signals: trust the header only if they corroborate
+    // each other. A header-area false positive (a section header or
+    // institution name that happens to be title-cased) will almost never
+    // share a token with the filename -- distrust it rather than guess.
+    return sharesToken(fromHeader, fromFilename) ? fromHeader : fromFilename;
+  }
+
+  // Only one signal available (or neither) -- nothing to cross-check against.
+  return fromHeader ?? fromFilename;
 }
 
 function nameTokens(name: string): string[] {
