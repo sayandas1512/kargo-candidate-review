@@ -3,7 +3,7 @@ loadEnv({ path: ".env.local" });
 loadEnv();
 import { readFileSync } from "node:fs";
 import { ingestFile } from "../../lib/ingest";
-import { extractPII, guessNameFromCV, redactCV } from "../../lib/pii";
+import { extractPII, guessNameFromCV, redactCV } from "../../lib/pii-guard";
 import { extractCV } from "../../lib/ai/extract";
 import type { ScorerInput } from "../../lib/ai/score";
 

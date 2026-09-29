@@ -1,4 +1,4 @@
-import { leakCheck } from "./pii";
+import { leakCheck } from "./pii-guard";
 import type { Identity } from "./ai/gemini";
 
 /** Splits on ./!/? followed by whitespace or end of string. Good enough for

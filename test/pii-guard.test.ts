@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractPII, redactCV, leakCheck, guessNameFromCV } from "@/lib/pii";
+import { extractPII, redactCV, leakCheck, guessNameFromCV } from "@/lib/pii-guard";
 
 const IDENTITY = { fullName: "Rohan Desai", email: "rohan.desai@example.com", phone: "+91 98765 43210" };
 

@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { candidates, candidateFiles, candidatePersonalDetails } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { ingestFile, hashBytes } from "../ingest";
-import { extractPII, guessNameFromCV, redactCV, leakCheck } from "../pii";
+import { extractPII, guessNameFromCV, redactCV, leakCheck } from "../pii-guard";
 import { logAudit } from "../audit";
 
 export type IngestOutcome =

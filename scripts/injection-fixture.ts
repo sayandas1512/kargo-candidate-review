@@ -3,7 +3,7 @@ loadEnv({ path: ".env.local" });
 loadEnv();
 import { scoreCandidateAgainstRubric } from "../lib/ai/score";
 import { extractCV } from "../lib/ai/extract";
-import { redactCV } from "../lib/pii";
+import { redactCV } from "../lib/pii-guard";
 import { loadRubricSeed } from "./lib/load-rubric";
 
 const SYNTHETIC_CV = `Priya Sharma
