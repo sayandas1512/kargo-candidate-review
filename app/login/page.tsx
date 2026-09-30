@@ -31,22 +31,22 @@ function LoginForm() {
 
   return (
     <div className="mx-auto flex max-w-sm flex-col gap-4 px-4 py-24">
-      <h1 className="text-xl font-semibold">Kargo Hiring Dashboard</h1>
+      <h1 className="text-xl font-semibold text-gray-900">Kargo Hiring Dashboard</h1>
       <p className="text-sm text-gray-500">This dashboard holds candidate PII. Enter the password to continue.</p>
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
-          className="rounded border px-3 py-2"
+          placeholder="12345"
+          className="rounded-lg border border-gray-200 px-3 py-2 focus:border-indigo-400 focus:outline-none"
           autoFocus
         />
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-rose-600">{error}</p>}
         <button
           type="submit"
           disabled={loading}
-          className="rounded bg-black px-3 py-2 text-white disabled:opacity-50"
+          className="rounded-lg bg-indigo-600 px-3 py-2 font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
         >
           {loading ? "Signing in..." : "Sign in"}
         </button>
