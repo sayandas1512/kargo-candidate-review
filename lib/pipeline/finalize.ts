@@ -247,3 +247,26 @@ export async function promoteCandidate(candidateId: string): Promise<void> {
   await ensureDraft({ candidateId, desiredKind: "invite", role: candidate.appliedRole, cvContent, identity });
   await logAudit({ event: "candidate.promoted", candidateId, actor: "arjun" });
 }
+
+/** Any candidate Arjun declines despite sitting in the algorithmic shortlist gets a rejection draft generated on demand. */
+export async function demoteCandidate(candidateId: string): Promise<void> {
+  const [candidate] = await db.select().from(candidates).where(eq(candidates.id, candidateId));
+  if (!candidate) throw new Error("candidate not found");
+  const [details] = await db
+    .select()
+    .from(candidatePersonalDetails)
+    .where(eq(candidatePersonalDetails.candidateId, candidateId));
+  if (!details) throw new Error("candidate has no personal details");
+
+  const [scoreRow] = await db
+    .select()
+    .from(scores)
+    .where(and(eq(scores.candidateId, candidateId), eq(scores.role, candidate.appliedRole)));
+  if (!scoreRow) throw new Error("candidate has no score for their applied role");
+
+  const cvContent = candidate.cvContent as { roles: { title: string; employer: string }[]; skills: string[] };
+  const identity = { fullName: details.fullName, email: details.email, phone: details.phone };
+
+  await ensureDraft({ candidateId, desiredKind: "rejection", role: candidate.appliedRole, cvContent, identity });
+  await logAudit({ event: "candidate.demoted", candidateId, actor: "arjun" });
+}
