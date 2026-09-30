@@ -317,6 +317,7 @@ export default function CandidateClient(props: {
           key={d.id}
           draft={d}
           firstName={details?.fullName?.split(/\s+/)[0] ?? "[NAME]"}
+          recipientEmail={details?.email ?? null}
           lowConfidence={primaryScore?.lowConfidence ?? false}
           ackLowConfidence={ackLowConfidence}
           setAckLowConfidence={setAckLowConfidence}
@@ -380,9 +381,36 @@ export default function CandidateClient(props: {
   );
 }
 
+function CopyButton({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard API can throw in an insecure context or without permission --
+      // the button just won't confirm; there's nothing else useful to do.
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      disabled={!value}
+      className="rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40"
+    >
+      {copied ? "Copied" : `Copy ${label}`}
+    </button>
+  );
+}
+
 function DraftEditor(props: {
   draft: Draft;
   firstName: string;
+  recipientEmail: string | null;
   lowConfidence: boolean;
   ackLowConfidence: boolean;
   setAckLowConfidence: (v: boolean) => void;
@@ -390,7 +418,7 @@ function DraftEditor(props: {
   onSend: () => void;
   busy: boolean;
 }) {
-  const { draft, firstName, lowConfidence, ackLowConfidence, setAckLowConfidence, onSave, onSend, busy } = props;
+  const { draft, firstName, recipientEmail, lowConfidence, ackLowConfidence, setAckLowConfidence, onSave, onSend, busy } = props;
   const [subject, setSubject] = useState(draft.subject);
   const [body, setBody] = useState(draft.bodyTemplate);
   const [preview, setPreview] = useState(true);
@@ -416,6 +444,11 @@ function DraftEditor(props: {
           <span>{draft.source}</span>
           {draft.sentTo && <span>sent to {draft.sentTo}</span>}
         </div>
+      </div>
+      <div className="mb-2 flex flex-wrap gap-2">
+        <CopyButton value={draft.sentTo ?? recipientEmail ?? ""} label="email" />
+        <CopyButton value={subject} label="subject" />
+        <CopyButton value={displayed} label="content" />
       </div>
       <input
         value={subject}
