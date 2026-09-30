@@ -14,6 +14,20 @@ function StatusChip({ status }: { status: string }) {
   );
 }
 
+function SentBadge({ draft }: { draft: { kind: string; status: string; sentTo: string | null } | null }) {
+  if (!draft || draft.status !== "sent") return null;
+  return (
+    <span
+      title={draft.sentTo ? `Sent to ${draft.sentTo}` : undefined}
+      className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${
+        draft.kind === "rejection" ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"
+      }`}
+    >
+      {draft.kind === "rejection" ? "Rejection sent" : "Invite sent"}
+    </span>
+  );
+}
+
 function RankBadge({ rank }: { rank: number }) {
   const style =
     rank === 1
@@ -128,7 +142,10 @@ export default async function DashboardPage({
                     </div>
                     <FlagPills flags={c.flags as string[]} lowConfidence={c.lowConfidence} />
                   </div>
-                  <StatusChip status={c.status} />
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <StatusChip status={c.status} />
+                    <SentBadge draft={c.latestDraft} />
+                  </div>
                 </Link>
               );
             })}
@@ -165,9 +182,12 @@ export default async function DashboardPage({
                     </div>
                     <FlagPills flags={c.flags as string[]} lowConfidence={c.lowConfidence} />
                   </div>
-                  <span className={`text-xs font-medium ${c.firstOpenedAt ? "text-emerald-600" : "text-gray-300"}`}>
-                    {c.firstOpenedAt ? "Reviewed" : "Not opened"}
-                  </span>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <span className={`text-xs font-medium ${c.firstOpenedAt ? "text-emerald-600" : "text-gray-300"}`}>
+                      {c.firstOpenedAt ? "Reviewed" : "Not opened"}
+                    </span>
+                    <SentBadge draft={c.latestDraft} />
+                  </div>
                 </Link>
               );
             })}

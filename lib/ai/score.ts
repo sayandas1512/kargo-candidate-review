@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { callGemini, detectPromptInjection, type Identity } from "./gemini";
 import { isGrounded } from "../ground";
-import { computeWeightedTotal } from "../scoring-math";
+import { computeWeightedTotal, LOW_SCORE_THRESHOLD } from "../scoring-math";
 
 export type RubricCriterionForScoring = {
   criterion_key: string;
@@ -242,7 +242,11 @@ export async function scoreCandidateAgainstRubric(params: {
 
   const weightedTotal = computeWeightedTotal(criteria, results);
 
-  const lowConfidence = flags.has("ungrounded_evidence") || flags.has("unstable_score") || flags.has("possible_prompt_injection");
+  const lowConfidence =
+    flags.has("ungrounded_evidence") ||
+    flags.has("unstable_score") ||
+    flags.has("possible_prompt_injection") ||
+    weightedTotal < LOW_SCORE_THRESHOLD;
 
   return {
     criteria: results,

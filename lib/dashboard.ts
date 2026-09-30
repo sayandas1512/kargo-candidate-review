@@ -55,7 +55,32 @@ export async function getDashboardData(role: "PM" | "SPM") {
     createdAt: r.createdAt,
   }));
   const ranked = rankCandidates(rankable, topKey);
-  const byId = new Map(rows.map((r) => [r.candidateId, r]));
+
+  const draftRows = await db
+    .select({
+      candidateId: emailDrafts.candidateId,
+      kind: emailDrafts.kind,
+      status: emailDrafts.status,
+      sentTo: emailDrafts.sentTo,
+      sentAt: emailDrafts.sentAt,
+      createdAt: emailDrafts.createdAt,
+    })
+    .from(emailDrafts)
+    .innerJoin(candidates, eq(candidates.id, emailDrafts.candidateId))
+    .where(eq(candidates.appliedRole, role));
+
+  // A candidate can end up with more than one draft over time (e.g. a sent
+  // invite plus a later rejection after demoteCandidate) -- the dashboard
+  // only cares about the most recent one.
+  const latestDraftByCandidate = new Map<string, (typeof draftRows)[number]>();
+  for (const d of draftRows) {
+    const existing = latestDraftByCandidate.get(d.candidateId);
+    if (!existing || d.createdAt > existing.createdAt) latestDraftByCandidate.set(d.candidateId, d);
+  }
+
+  const byId = new Map(
+    rows.map((r) => [r.candidateId, { ...r, latestDraft: latestDraftByCandidate.get(r.candidateId) ?? null }]),
+  );
 
   const N = shortlistSize();
   const shortlist = ranked.slice(0, N).map((r) => byId.get(r.candidateId)!);

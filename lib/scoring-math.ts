@@ -1,3 +1,6 @@
+/** Below this weightedTotal (0-100 scale), a score is flagged low-confidence purely for being weak -- independent of whether the model grounded its evidence cleanly. */
+export const LOW_SCORE_THRESHOLD = 50;
+
 /** Weighted total (0-100) = sum over criteria of: weight x (score / 4), rounded to 1 decimal. */
 export function computeWeightedTotal(
   criteria: { criterion_key: string; weight: number }[],
