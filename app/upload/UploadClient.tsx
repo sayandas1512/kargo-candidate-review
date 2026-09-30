@@ -28,6 +28,19 @@ async function fetchWithBackoff(input: RequestInfo, init?: RequestInit): Promise
   }
 }
 
+/** A platform-level failure (e.g. a function timeout) returns a plain-text
+ * or HTML error page, not JSON -- .json() on that throws a confusing
+ * SyntaxError ("Unexpected token...") instead of a readable message. */
+async function errorMessageFrom(res: Response, fallback: string): Promise<string> {
+  const text = await res.text();
+  try {
+    const body = JSON.parse(text);
+    return body.error ?? fallback;
+  } catch {
+    return `${fallback} (${res.status}): ${text.slice(0, 120)}`;
+  }
+}
+
 export default function UploadClient() {
   const [attested, setAttested] = useState<boolean | null>(null);
   const [attestChecked, setAttestChecked] = useState(false);
@@ -77,30 +90,57 @@ export default function UploadClient() {
       form.append("file", item.file);
       form.append("appliedRole", item.role);
       const ingestRes = await fetchWithBackoff("/api/stages/ingest", { method: "POST", body: form });
+      if (!ingestRes.ok) throw new Error(await errorMessageFrom(ingestRes, "ingest failed"));
       const ingestBody = await ingestRes.json();
-      if (!ingestRes.ok) throw new Error(ingestBody.error ?? "ingest failed");
 
-      if (ingestBody.status !== "uploaded") {
-        setItem(item.id, { stage: "done", candidateId: ingestBody.candidateId, note: ingestBody.status });
+      const candidateId: string | undefined = ingestBody.candidateId;
+      let resumeStatus: string;
+
+      if (ingestBody.status === "uploaded") {
+        resumeStatus = "uploaded";
+      } else if (ingestBody.status === "duplicate" && candidateId) {
+        // This file was already ingested (e.g. a retry after extract/score
+        // failed or timed out on an earlier attempt). Don't assume that
+        // means it's done -- a stage after ingest can fail independently,
+        // and reporting "done" here would silently strand it mid-pipeline
+        // with no error shown. Check where it actually got to and resume.
+        const statusRes = await fetch(`/api/candidates/${candidateId}`);
+        const statusBody = await statusRes.json();
+        resumeStatus = statusBody.candidate?.status ?? "uploaded";
+      } else {
+        // unsupported_type / too_large never reach here (handled by the
+        // outcome switch below); needs_manual_review / needs_identity_check
+        // from a fresh ingest are genuine terminal states.
+        setItem(item.id, { stage: "done", candidateId, note: ingestBody.status });
         return;
       }
-      const candidateId = ingestBody.candidateId as string;
-      setItem(item.id, { candidateId, stage: "extracting" });
 
-      const extractRes = await fetchWithBackoff("/api/stages/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ candidateId }),
-      });
-      if (!extractRes.ok) throw new Error((await extractRes.json()).error ?? "extract failed");
+      if (resumeStatus === "ready" || resumeStatus === "scored") {
+        setItem(item.id, { candidateId, stage: "done", note: "scored" });
+        return;
+      }
+      if (["needs_manual_review", "needs_identity_check", "failed"].includes(resumeStatus)) {
+        setItem(item.id, { candidateId, stage: "done", note: resumeStatus });
+        return;
+      }
 
-      setItem(item.id, { stage: "scoring" });
+      if (resumeStatus === "uploaded") {
+        setItem(item.id, { candidateId, stage: "extracting" });
+        const extractRes = await fetchWithBackoff("/api/stages/extract", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ candidateId }),
+        });
+        if (!extractRes.ok) throw new Error(await errorMessageFrom(extractRes, "extract failed"));
+      }
+
+      setItem(item.id, { candidateId, stage: "scoring" });
       const scoreRes = await fetchWithBackoff("/api/stages/score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ candidateId }),
       });
-      if (!scoreRes.ok) throw new Error((await scoreRes.json()).error ?? "score failed");
+      if (!scoreRes.ok) throw new Error(await errorMessageFrom(scoreRes, "score failed"));
 
       setItem(item.id, { stage: "done", note: "scored" });
     } catch (err) {
