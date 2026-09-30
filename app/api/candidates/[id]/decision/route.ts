@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { decisions } from "@/db/schema";
-import { isCandidateShortlisted } from "@/lib/pipeline/finalize";
+import { isCandidateShortlisted, demoteCandidate } from "@/lib/pipeline/finalize";
 import { logAudit } from "@/lib/audit";
 
 const VALID_DECISIONS = ["advance", "hold", "decline"] as const;
@@ -16,8 +16,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "decision must be advance, hold, or decline" }, { status: 400 });
   }
 
+  let shortlisted = false;
   if (decision !== "hold") {
-    const shortlisted = await isCandidateShortlisted(id);
+    shortlisted = await isCandidateShortlisted(id);
     const againstPlacement = (decision === "advance" && !shortlisted) || (decision === "decline" && shortlisted);
     if (againstPlacement && !reason) {
       return NextResponse.json(
@@ -33,6 +34,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .returning({ id: decisions.id });
 
   await logAudit({ event: "decision.recorded", candidateId: id, actor: "arjun", meta: { decision, decisionId: row.id } });
+
+  // Declining a still-shortlisted candidate leaves finalize's invite draft
+  // stranded with nothing matching it to send -- swap it for a rejection
+  // draft so canSend has the right kind to work with.
+  if (decision === "decline" && shortlisted) {
+    await demoteCandidate(id);
+  }
 
   return NextResponse.json({ ok: true });
 }
