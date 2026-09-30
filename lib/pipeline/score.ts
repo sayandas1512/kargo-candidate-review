@@ -88,7 +88,12 @@ export async function runScoreStage(candidateId: string): Promise<void> {
           criteria: result.criteria,
           weightedTotal: result.weightedTotal.toString(),
           flags,
-          lowConfidence: result.lowConfidence || flags.length > result.flags.length,
+          // Only the model-side signals (ungrounded_evidence, unstable_score,
+          // possible_prompt_injection) drive low confidence. location/
+          // experience-range flags are informational only, per spec never
+          // used to score, exclude, or otherwise treat a candidate
+          // differently -- they must not silently flip this either.
+          lowConfidence: result.lowConfidence,
         })
         .onConflictDoUpdate({
           target: [scores.candidateId, scores.role, scores.rubricVersion],
