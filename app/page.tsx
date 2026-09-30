@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getDashboardData } from "@/lib/dashboard";
 import { scoreTextColor, scoreDotColor, STATUS_STYLES } from "@/lib/score-colors";
+import { isHighConfidence } from "@/lib/scoring-math";
 
 export const dynamic = "force-dynamic";
 
@@ -54,12 +55,16 @@ function ScoreDots({ criteria, nameByKey }: { criteria: Criterion[]; nameByKey: 
   );
 }
 
-function FlagPills({ flags, lowConfidence }: { flags: string[]; lowConfidence: boolean }) {
-  if (flags.length === 0 && !lowConfidence) return <span className="text-xs text-gray-400">No flags</span>;
+function FlagPills({ flags, lowConfidence, weightedTotal }: { flags: string[]; lowConfidence: boolean; weightedTotal: number }) {
+  const highConfidence = isHighConfidence(weightedTotal, lowConfidence);
+  if (flags.length === 0 && !lowConfidence && !highConfidence) return <span className="text-xs text-gray-400">No flags</span>;
   return (
     <div className="flex flex-wrap gap-1">
       {lowConfidence && (
         <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Low confidence</span>
+      )}
+      {highConfidence && (
+        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">High confidence</span>
       )}
       {flags.map((f) => (
         <span key={f} className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
@@ -140,7 +145,7 @@ export default async function DashboardPage({
                         </span>
                       )}
                     </div>
-                    <FlagPills flags={c.flags as string[]} lowConfidence={c.lowConfidence} />
+                    <FlagPills flags={c.flags as string[]} lowConfidence={c.lowConfidence} weightedTotal={total} />
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     <StatusChip status={c.status} />
@@ -180,7 +185,7 @@ export default async function DashboardPage({
                         </span>
                       )}
                     </div>
-                    <FlagPills flags={c.flags as string[]} lowConfidence={c.lowConfidence} />
+                    <FlagPills flags={c.flags as string[]} lowConfidence={c.lowConfidence} weightedTotal={total} />
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     <span className={`text-xs font-medium ${c.firstOpenedAt ? "text-emerald-600" : "text-gray-300"}`}>
