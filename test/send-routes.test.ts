@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 
 // Both send routes must refuse to ever reach Resend when canSend blocks --
 // this is the direct "both routes respect the one gate, no exceptions" proof,
@@ -50,10 +50,16 @@ function jsonRequest(body: unknown) {
   }) as never;
 }
 
+const prevBulkFlag = process.env.BULK_SEND_ENABLED;
+
 beforeEach(() => {
   resendSendSpy.mockClear();
   canSendMock.result = { allowed: false, reasons: ["blocked for test"] };
   dbMock.updateResult = [];
+  // Bulk send is off by default (C3) -- these tests are specifically about
+  // what happens once it's on, so turn it on here; the dedicated
+  // "disabled by default" describe block below restores/unsets it per test.
+  process.env.BULK_SEND_ENABLED = "true";
 });
 
 describe("single-candidate send route respects the gate", () => {
@@ -111,4 +117,39 @@ describe("bulk send route respects the gate", () => {
     expect(res.status).toBe(400);
     expect(resendSendSpy).not.toHaveBeenCalled();
   });
+});
+
+describe("bulk send is disabled by default (BULK_SEND_ENABLED)", () => {
+  it("returns 403 and never reaches the gate when the flag is unset", async () => {
+    delete process.env.BULK_SEND_ENABLED;
+    canSendMock.result = { allowed: true, reasons: [], draftId: "d1" }; // would otherwise be eligible
+    const res = await bulkSend(jsonRequest({ candidateIds: ["c1"], confirmation: "SEND 1" }));
+    expect(res.status).toBe(403);
+    expect(resendSendSpy).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when the flag is explicitly false", async () => {
+    process.env.BULK_SEND_ENABLED = "false";
+    const res = await bulkSend(jsonRequest({ candidateIds: ["c1"], confirmation: "SEND 1" }));
+    expect(res.status).toBe(403);
+  });
+
+  it("proceeds past the flag check once BULK_SEND_ENABLED=true", async () => {
+    process.env.BULK_SEND_ENABLED = "true";
+    canSendMock.result = { allowed: false, reasons: ["blocked for test"] };
+    const res = await bulkSend(jsonRequest({ candidateIds: ["c1"], confirmation: "SEND 1" }));
+    expect(res.status).not.toBe(403); // reaches the normal 200-with-skipped path instead
+  });
+
+  it("single-candidate send is unaffected by the bulk flag", async () => {
+    delete process.env.BULK_SEND_ENABLED;
+    canSendMock.result = { allowed: false, reasons: ["blocked for test"] };
+    const res = await singleSend(jsonRequest({ kind: "invite" }), { params: Promise.resolve({ id: "c1" }) });
+    expect(res.status).toBe(409); // the normal canSend-blocked response, not a 403
+  });
+});
+
+afterAll(() => {
+  if (prevBulkFlag === undefined) delete process.env.BULK_SEND_ENABLED;
+  else process.env.BULK_SEND_ENABLED = prevBulkFlag;
 });

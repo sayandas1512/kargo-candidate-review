@@ -19,6 +19,13 @@ function sleep(ms: number) {
  * (they must be sent one at a time with the explicit acknowledgement).
  */
 export async function POST(req: NextRequest) {
+  // Off by default -- bulk send has no UI wired to it yet, and turning it on
+  // is a deliberate operational decision, not something a deploy should
+  // silently enable. Never set to "true" on Vercel without an explicit ask.
+  if (process.env.BULK_SEND_ENABLED !== "true") {
+    return NextResponse.json({ error: "bulk send is disabled" }, { status: 403 });
+  }
+
   const body = await req.json().catch(() => ({}));
   const candidateIds: unknown = body?.candidateIds;
   const confirmation: unknown = body?.confirmation;
