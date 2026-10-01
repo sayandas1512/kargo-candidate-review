@@ -125,6 +125,9 @@ export default function UploadClient() {
       }
 
       if (resumeStatus === "uploaded") {
+        // /api/stages/extract chains straight into scoring server-side on
+        // success (the two stages are strictly sequential anyway), so a
+        // fresh upload only needs this one round trip instead of two.
         setItem(item.id, { candidateId, stage: "extracting" });
         const extractRes = await fetchWithBackoff("/api/stages/extract", {
           method: "POST",
@@ -132,15 +135,17 @@ export default function UploadClient() {
           body: JSON.stringify({ candidateId }),
         });
         if (!extractRes.ok) throw new Error(await errorMessageFrom(extractRes, "extract failed"));
+      } else {
+        // Resuming a candidate that already finished extract on an earlier
+        // attempt (only score failed/timed out) -- score alone.
+        setItem(item.id, { candidateId, stage: "scoring" });
+        const scoreRes = await fetchWithBackoff("/api/stages/score", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ candidateId }),
+        });
+        if (!scoreRes.ok) throw new Error(await errorMessageFrom(scoreRes, "score failed"));
       }
-
-      setItem(item.id, { candidateId, stage: "scoring" });
-      const scoreRes = await fetchWithBackoff("/api/stages/score", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ candidateId }),
-      });
-      if (!scoreRes.ok) throw new Error(await errorMessageFrom(scoreRes, "score failed"));
 
       setItem(item.id, { stage: "done", note: "scored" });
     } catch (err) {
