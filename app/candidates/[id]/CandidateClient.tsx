@@ -164,6 +164,13 @@ export default function CandidateClient(props: {
     });
     setBusy(false);
     if (res.ok) {
+      // router.refresh() re-fetches the server component's props, but this
+      // component's `drafts` is local state seeded once from those props on
+      // mount -- a refresh alone never updates it, so without this the
+      // button stays stuck on "Confirm & send" even though the email was
+      // sent successfully. Update locally first, then refresh for everything
+      // else (decision history, dashboard counts, etc.) that depends on it.
+      setDrafts((prev) => prev.map((d) => (d.kind === kind ? { ...d, status: "sent" } : d)));
       router.refresh();
     } else {
       const body = await res.json();
