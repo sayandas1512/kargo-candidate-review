@@ -344,6 +344,7 @@ export default function CandidateClient(props: {
           onSave={(subject, body) => saveDraft(d, subject, body)}
           onSend={() => send(d.kind)}
           busy={busy}
+          message={message}
         />
       ))}
 
@@ -437,8 +438,9 @@ function DraftEditor(props: {
   onSave: (subject: string, body: string) => void;
   onSend: () => void;
   busy: boolean;
+  message: string | null;
 }) {
-  const { draft, firstName, recipientEmail, lowConfidence, ackLowConfidence, setAckLowConfidence, onSave, onSend, busy } = props;
+  const { draft, firstName, recipientEmail, lowConfidence, ackLowConfidence, setAckLowConfidence, onSave, onSend, busy, message } = props;
   const [subject, setSubject] = useState(draft.subject);
   const [body, setBody] = useState(draft.bodyTemplate);
   const [preview, setPreview] = useState(true);
@@ -531,6 +533,9 @@ function DraftEditor(props: {
           {draft.status === "sent" ? "Email sent" : "Confirm & send"}
         </button>
       </div>
+      {message && draft.status !== "sent" && (
+        <p className="mt-2 rounded-lg bg-amber-50 px-2 py-1.5 text-xs font-medium text-amber-800">{message}</p>
+      )}
       {draft.error && <p className="mt-2 text-xs font-medium text-rose-600">{draft.error}</p>}
     </section>
   );
