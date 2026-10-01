@@ -46,15 +46,15 @@ export async function runIngestStage(
   }
 
   const { text, mime } = parsed;
-  const rawGuess = guessNameFromCV(text, originalFilename);
+  const nameGuess = guessNameFromCV(text, originalFilename);
   // Unconditional final gate -- see isPlausibleName's doc comment. Never
-  // trust rawGuess directly, no matter how it was computed.
-  const guessedName = rawGuess && isPlausibleName(rawGuess) ? rawGuess : null;
-  if (rawGuess && !guessedName) {
+  // trust nameGuess.name directly, no matter how it was computed.
+  const guessedName = nameGuess.name && isPlausibleName(nameGuess.name) ? nameGuess.name : null;
+  if (nameGuess.name && !guessedName) {
     await logAudit({
       event: "ingest.implausible_name_guess_rejected",
       actor: "system",
-      meta: { originalFilename, rejected: rawGuess },
+      meta: { originalFilename, rejected: nameGuess.name },
     });
   }
   const pii = extractPII(text);
@@ -92,7 +92,7 @@ export async function runIngestStage(
   }
 
   const identity = { fullName: guessedName, email: pii.emails[0] ?? null, phone: pii.phones[0] ?? null };
-  const redacted = redactCV(text, identity);
+  const redacted = redactCV(text, identity, nameGuess.conflictingName ? [nameGuess.conflictingName] : []);
   const leak = leakCheck(redacted, identity);
   if (!leak.ok) {
     // Defensive: redaction should never leave a leak, but if it does, do not

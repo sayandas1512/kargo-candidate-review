@@ -18,10 +18,11 @@ export async function prepareCV(filePath: string) {
   const parsed = await ingestFile(bytes);
   if (!parsed.ok) throw new Error(`could not parse ${filePath}: ${parsed.reason}`);
 
-  const guessedName = guessNameFromCV(parsed.text, filePath) ?? "Unknown Candidate";
+  const nameGuess = guessNameFromCV(parsed.text, filePath);
+  const guessedName = nameGuess.name ?? "Unknown Candidate";
   const pii = extractPII(parsed.text);
   const identity = { fullName: guessedName, email: pii.emails[0] ?? null, phone: pii.phones[0] ?? null };
-  const redacted = redactCV(parsed.text, identity);
+  const redacted = redactCV(parsed.text, identity, nameGuess.conflictingName ? [nameGuess.conflictingName] : []);
 
   const extraction = await extractCV(redacted, identity);
   const scorerInput: ScorerInput = { roles: extraction.roles, skills: extraction.skills };

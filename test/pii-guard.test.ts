@@ -67,52 +67,74 @@ describe("redactCV + leakCheck", () => {
 
 describe("guessNameFromCV", () => {
   it("finds the name from the CV header", () => {
-    expect(guessNameFromCV(SAMPLE_CV, "cv.pdf")).toBe("Rohan Desai");
+    expect(guessNameFromCV(SAMPLE_CV, "cv.pdf").name).toBe("Rohan Desai");
   });
 
   it("falls back to the filename when the header has no clean name line", () => {
     const noHeader = "Experience:\n- Did things.\n- Did more things.";
-    expect(guessNameFromCV(noHeader, "cv_07_lavanya_iyer.docx")).toBe("Lavanya Iyer");
+    expect(guessNameFromCV(noHeader, "cv_07_lavanya_iyer.docx").name).toBe("Lavanya Iyer");
   });
 
   it("does not mistake a section header for a name (real leak found in production)", () => {
     const cv = "Strategic & Marketing Lead\nPROFESSIONAL SUMMARY\nA marketer with 8+ years of experience.";
     // No name in the header area at all, and the filename has no real name either --
     // must fall through to null (needs_identity_check), never guess the header text.
-    expect(guessNameFromCV(cv, "resume.pdf")).toBeNull();
+    expect(guessNameFromCV(cv, "resume.pdf").name).toBeNull();
   });
 
   it("stops scanning for a name once a section header is reached, even if a later line looks name-shaped", () => {
     const cv = "Strategy & Operations Leader\nEDUCATION\nPGDM (Full-Time)\nIMT Ghaziabad | 2022 - 2024";
     // "IMT Ghaziabad" is title-cased and regex-shaped like a name, but it's an
     // institution under EDUCATION, past the header area -- must not be guessed.
-    expect(guessNameFromCV(cv, "resume.pdf")).toBeNull();
+    expect(guessNameFromCV(cv, "resume.pdf").name).toBeNull();
   });
 
   it("falls through to the filename once the header is correctly rejected", () => {
     const cv = "PROFESSIONAL SYNOPSIS\nProduct leader with 17 years of experience.";
-    expect(guessNameFromCV(cv, "03_arnav_sen.pdf")).toBe("Arnav Sen");
+    expect(guessNameFromCV(cv, "03_arnav_sen.pdf").name).toBe("Arnav Sen");
   });
 
-  it("distrusts a header guess that disagrees with the filename-derived name", () => {
+  it("uses the filename when the header is garbled, even though it is structurally name-shaped", () => {
     // Caught live in production: PDF text extraction for one specific file
     // was observed to intermittently return a wrong, title-case-shaped
     // header guess even after the section-header blocklist fix (root cause
-    // in the PDF parser was never fully pinned down). This is the safety
-    // net: when a header guess and a filename guess share no token, the
-    // header guess is untrusted and the filename wins instead.
+    // in the PDF parser was never fully pinned down). "Global Delivery
+    // Office" passes the bare title-case regex just like a real name would
+    // -- the institutional-word check is what actually tells them apart.
     const cv = "Global Delivery Office\nProduct leader with 17 years of experience.";
-    expect(guessNameFromCV(cv, "03_arnav_sen.pdf")).toBe("Arnav Sen");
+    const guess = guessNameFromCV(cv, "03_arnav_sen.pdf");
+    expect(guess.name).toBe("Arnav Sen");
+    expect(guess.conflictingName).toBeNull(); // header was invalid, not merely disagreeing
+  });
+
+  it("header wins over an independently-plausible but disagreeing filename, and flags the filename name for redaction too", () => {
+    // The header is clean and correct; the filename just happens to also be
+    // name-shaped (e.g. a fixture/project naming convention) for an unrelated
+    // reason. The header must not be silently overridden -- but the
+    // filename-derived name is still returned as conflictingName so its
+    // tokens get redacted defensively.
+    const cv = "Zendaya Okonkwo-Platt\nProduct leader with 17 years of experience.";
+    const guess = guessNameFromCV(cv, "strong_pm.pdf");
+    expect(guess.name).toBe("Zendaya Okonkwo-Platt");
+    expect(guess.conflictingName).toBe("Strong Pm");
+
+    const identity = { fullName: guess.name!, email: null, phone: null };
+    const redacted = redactCV(cv, identity, [guess.conflictingName!]);
+    expect(redacted.toLowerCase()).not.toContain("zendaya");
+    expect(redacted.toLowerCase()).not.toContain("okonkwo");
+    expect(redacted.toLowerCase()).not.toContain("strong");
   });
 
   it("trusts the header guess when it corroborates the filename", () => {
     const cv = "Arnav Sen\nProduct leader with 17 years of experience.";
-    expect(guessNameFromCV(cv, "03_arnav_sen.pdf")).toBe("Arnav Sen");
+    expect(guessNameFromCV(cv, "03_arnav_sen.pdf").name).toBe("Arnav Sen");
   });
 
-  it("trusts the header guess alone when the filename gives no name to cross-check against", () => {
+  it("trusts a good header even though Resume_Final.pdf contributes no filename signal", () => {
     const cv = "Arnav Sen\nProduct leader with 17 years of experience.";
-    expect(guessNameFromCV(cv, "resume_final.pdf")).toBe("Arnav Sen");
+    const guess = guessNameFromCV(cv, "Resume_Final.pdf");
+    expect(guess.name).toBe("Arnav Sen");
+    expect(guess.conflictingName).toBeNull();
   });
 
   it("redacts a name even when a PDF extraction artifact fuses it to the previous word with no space", () => {

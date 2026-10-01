@@ -57,6 +57,20 @@ const SECTION_HEADER_RE =
 
 const namePattern = /^[A-Z][a-zA-Z'.-]+(\s+[A-Z][a-zA-Z'.-]+){1,3}$/;
 
+// Words that show up in garbled header extractions (org units, generic job
+// titles pulled from the wrong line) but are never, on their own, a person's
+// given or family name. A name-shaped candidate containing one of these as a
+// whole word is almost certainly extraction noise, not a real name -- e.g.
+// "Global Delivery Office" structurally passes namePattern (three title-case
+// words) exactly like a real name would, so this is the signal that tells
+// the two apart.
+const INSTITUTIONAL_WORD_RE =
+  /^(office|delivery|global|solutions?|group|services?|department|division|team|enterprise|holdings|international|consulting|technologies|systems|networks|partners|ventures|corporation|company|limited|inc|llc|ltd)$/i;
+
+function containsInstitutionalWord(name: string): boolean {
+  return name.split(/\s+/).some((w) => INSTITUTIONAL_WORD_RE.test(w));
+}
+
 function headerGuess(text: string): string | null {
   const lines = text
     .split(/\r?\n/)
@@ -93,20 +107,46 @@ function sharesToken(a: string, b: string): boolean {
   return b.toLowerCase().split(/\s+/).some((t) => tokensA.has(t));
 }
 
-export function guessNameFromCV(text: string, filename: string): string | null {
+export type NameGuess = {
+  /** The name to use for identity and the [NAME] greeting. */
+  name: string | null;
+  /**
+   * Set only when the header and filename both produced a plausible but
+   * disagreeing name and the header won. The filename guess is still real
+   * candidate-adjacent text that showed up in a PII-sensing context, so its
+   * tokens get redacted from the CV too even though they're not used as the
+   * identity -- see redactCV's additionalNames parameter.
+   */
+  conflictingName: string | null;
+};
+
+/**
+ * Header-first: a header guess is trusted whenever it independently passes
+ * isPlausibleName (not a section header, not institutional-sounding noise
+ * like "Global Delivery Office"). The filename is only consulted when the
+ * header is missing or fails that check -- never to override a header that
+ * validates, even if the two disagree. On a genuine disagreement between two
+ * independently-plausible names, the filename guess is NOT discarded: its
+ * tokens are returned as conflictingName so the caller redacts them too,
+ * since silently dropping a name-shaped string from a PII-handling path
+ * would be the under-redaction failure mode this file exists to avoid.
+ */
+export function guessNameFromCV(text: string, filename: string): NameGuess {
   const fromHeader = headerGuess(text);
   const fromFilename = filenameGuess(filename);
+  const headerValid = fromHeader !== null && isPlausibleName(fromHeader);
+  const filenameValid = fromFilename !== null && isPlausibleName(fromFilename);
 
-  if (fromHeader && fromFilename) {
-    // Two independent signals: trust the header only if they corroborate
-    // each other. A header-area false positive (a section header or
-    // institution name that happens to be title-cased) will almost never
-    // share a token with the filename -- distrust it rather than guess.
-    return sharesToken(fromHeader, fromFilename) ? fromHeader : fromFilename;
+  if (headerValid) {
+    const disagrees = filenameValid && !sharesToken(fromHeader!, fromFilename!);
+    return { name: fromHeader, conflictingName: disagrees ? fromFilename : null };
   }
 
-  // Only one signal available (or neither) -- nothing to cross-check against.
-  return fromHeader ?? fromFilename;
+  if (filenameValid) {
+    return { name: fromFilename, conflictingName: null };
+  }
+
+  return { name: null, conflictingName: null };
 }
 
 /**
@@ -122,6 +162,7 @@ export function isPlausibleName(name: string): boolean {
   const trimmed = name.trim();
   if (!namePattern.test(trimmed)) return false;
   if (SECTION_HEADER_RE.test(trimmed)) return false;
+  if (containsInstitutionalWord(trimmed)) return false;
   return true;
 }
 
@@ -133,10 +174,16 @@ function nameTokens(name: string): string[] {
  * Produces cv_text_redacted: strips every occurrence of every 3+ letter
  * token of the name, the email, the phone (in any format matched by
  * PHONE_RE), and every URL/handle. Deterministic, no AI involved.
+ *
+ * additionalNames: other name-shaped strings to also strip tokens for, even
+ * though they aren't the identity on file -- e.g. a filename-derived guess
+ * that disagreed with the (trusted) header guess. It showed up as a
+ * plausible name in a PII-sensing context, so it gets redacted too.
  */
 export function redactCV(
   text: string,
   identity: { fullName: string; email?: string | null; phone?: string | null },
+  additionalNames: string[] = [],
 ): string {
   let redacted = text;
 
@@ -162,15 +209,17 @@ export function redactCV(
     return digits.length >= 7 && digits.length <= 15 ? "[REDACTED]" : m;
   });
 
-  for (const token of nameTokens(identity.fullName)) {
-    // No \b boundary: some PDF extractions fuse adjacent text runs with no
-    // whitespace (e.g. a name repeated in a watermark as "SHARMAPriya"), so
-    // a name token can appear with no word boundary on one side. A plain
-    // substring match is the safe direction here -- over-redacting a rare
-    // unrelated word that happens to contain the name is far better than
-    // leaving real PII in text that gets sent to Gemini.
-    const re = new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
-    redacted = redacted.replace(re, "[REDACTED]");
+  for (const name of [identity.fullName, ...additionalNames]) {
+    for (const token of nameTokens(name)) {
+      // No \b boundary: some PDF extractions fuse adjacent text runs with no
+      // whitespace (e.g. a name repeated in a watermark as "SHARMAPriya"), so
+      // a name token can appear with no word boundary on one side. A plain
+      // substring match is the safe direction here -- over-redacting a rare
+      // unrelated word that happens to contain the name is far better than
+      // leaving real PII in text that gets sent to Gemini.
+      const re = new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+      redacted = redacted.replace(re, "[REDACTED]");
+    }
   }
 
   return redacted;
