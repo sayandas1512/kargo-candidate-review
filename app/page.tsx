@@ -55,24 +55,17 @@ function ScoreDots({ criteria, nameByKey }: { criteria: Criterion[]; nameByKey: 
   );
 }
 
-function FlagPills({ flags, lowConfidence, weightedTotal }: { flags: string[]; lowConfidence: boolean; weightedTotal: number }) {
-  const highConfidence = isHighConfidence(weightedTotal, lowConfidence);
-  if (flags.length === 0 && !lowConfidence && !highConfidence) return <span className="text-xs text-gray-400">No flags</span>;
-  return (
-    <div className="flex flex-wrap gap-1">
-      {lowConfidence && (
-        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Low confidence</span>
-      )}
-      {highConfidence && (
-        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">High confidence</span>
-      )}
-      {flags.map((f) => (
-        <span key={f} className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-          {f.replace(/_/g, " ")}
-        </span>
-      ))}
-    </div>
-  );
+// Dashboard rows only ever show the confidence verdict -- the specific flags behind it
+// (e.g. "location not mumbai no relocation") are meaningless without the rationale and
+// evidence quote that explain them, which only the candidate detail page has room for.
+function ConfidencePill({ lowConfidence, weightedTotal }: { lowConfidence: boolean; weightedTotal: number }) {
+  if (lowConfidence) {
+    return <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Low confidence</span>;
+  }
+  if (isHighConfidence(weightedTotal, lowConfidence)) {
+    return <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">High confidence</span>;
+  }
+  return null;
 }
 
 export default async function DashboardPage({
@@ -137,6 +130,7 @@ export default async function DashboardPage({
                   <RankBadge rank={i + 1} />
                   <div className={`w-14 shrink-0 text-xl font-bold ${scoreTextColor(total)}`}>{total.toFixed(1)}</div>
                   <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-gray-900">{c.fullName || "Name pending confirmation"}</div>
                     <div className="mb-1 flex items-center gap-2">
                       <ScoreDots criteria={criteria} nameByKey={data.nameByKey} />
                       {top && (
@@ -146,7 +140,7 @@ export default async function DashboardPage({
                         </span>
                       )}
                     </div>
-                    <FlagPills flags={c.flags as string[]} lowConfidence={c.lowConfidence} weightedTotal={total} />
+                    <ConfidencePill lowConfidence={c.lowConfidence} weightedTotal={total} />
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     <StatusChip status={c.status} />
@@ -177,6 +171,7 @@ export default async function DashboardPage({
                   <RankBadge rank={data.shortlist.length + i + 1} />
                   <div className={`w-14 shrink-0 text-lg font-semibold ${scoreTextColor(total)}`}>{total.toFixed(1)}</div>
                   <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-gray-900">{c.fullName || "Name pending confirmation"}</div>
                     <div className="mb-1 flex items-center gap-2">
                       <ScoreDots criteria={criteria} nameByKey={data.nameByKey} />
                       {top && (
@@ -186,7 +181,7 @@ export default async function DashboardPage({
                         </span>
                       )}
                     </div>
-                    <FlagPills flags={c.flags as string[]} lowConfidence={c.lowConfidence} weightedTotal={total} />
+                    <ConfidencePill lowConfidence={c.lowConfidence} weightedTotal={total} />
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     <span className={`text-xs font-medium ${c.firstOpenedAt ? "text-emerald-600" : "text-gray-300"}`}>
