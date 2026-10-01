@@ -28,7 +28,7 @@ export default function Nav() {
         <div className="flex items-center gap-6">
           <span className="flex items-center gap-2 font-semibold text-gray-900">
             <span className="h-2 w-2 rounded-full bg-indigo-600" />
-            Kargo Hiring
+            Kargo Candidate Review
           </span>
           <nav className="flex gap-1 text-sm">
             {LINKS.map((l) => (

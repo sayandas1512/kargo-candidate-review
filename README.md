@@ -1,4 +1,4 @@
-# Kargo Hiring Dashboard
+# Kargo Candidate Review
 
 A ranked shortlist and interview-brief tool for Kargo's PM and SPM applicants. The system ranks and explains; Arjun decides. See [`rubric.txt`](./rubric.txt) for the scoring rubric this is built from.
 

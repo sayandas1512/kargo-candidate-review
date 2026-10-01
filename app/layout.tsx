@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Kargo Hiring Dashboard",
+  title: "Kargo Candidate Review",
   description: "Ranked shortlist and interview briefs for Kargo's PM and SPM applicants.",
 };
 

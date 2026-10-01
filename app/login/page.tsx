@@ -31,7 +31,7 @@ function LoginForm() {
 
   return (
     <div className="mx-auto flex max-w-sm flex-col gap-4 px-4 py-24">
-      <h1 className="text-xl font-semibold text-gray-900">Kargo Hiring Dashboard</h1>
+      <h1 className="text-xl font-semibold text-gray-900">Kargo Candidate Review</h1>
       <p className="text-sm text-gray-500">This dashboard holds candidate PII. Enter the password to continue.</p>
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         <input
