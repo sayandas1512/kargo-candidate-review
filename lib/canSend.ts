@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { candidates, decisions, emailDrafts, scores } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { validateEmailDraft } from "./validators";
+import { isCandidateShortlisted } from "./pipeline/finalize";
 
 export type CanSendResult = {
   allowed: boolean;
@@ -20,13 +21,21 @@ export async function canSend(params: {
   kind: "invite" | "rejection";
   acknowledgedLowConfidence?: boolean;
   liveConfirmed?: boolean;
+  /** Explicit human override for condition 8 (placement contradicts draft kind). */
+  placementConfirmed?: boolean;
 }): Promise<CanSendResult> {
-  const { candidateId, kind, acknowledgedLowConfidence, liveConfirmed } = params;
+  const { candidateId, kind, acknowledgedLowConfidence, liveConfirmed, placementConfirmed } = params;
   const reasons: string[] = [];
 
   const [candidate] = await db.select().from(candidates).where(eq(candidates.id, candidateId));
   if (!candidate) {
     return { allowed: false, reasons: ["candidate not found"] };
+  }
+
+  // A calibration/test fixture is never a real applicant -- never sendable,
+  // full stop, regardless of how its decision/draft/status otherwise look.
+  if (candidate.isCalibration) {
+    reasons.push("candidate is a calibration/test fixture, never sendable");
   }
 
   // 2. Status must not be a holding/failed state.
@@ -97,6 +106,27 @@ export async function canSend(params: {
   const emailMode = process.env.EMAIL_MODE ?? "test";
   if (emailMode === "live" && !liveConfirmed) {
     reasons.push("EMAIL_MODE=live requires confirming the recipient count before sending");
+  }
+
+  // 8. The draft kind must still match the candidate's CURRENT algorithmic
+  // placement, not just their decision. A decision can correctly match the
+  // draft kind at decide-time and then drift out of sync -- e.g. more
+  // candidates get scored afterward and the shortlist cutoff moves -- with
+  // nothing else catching it, since finalize deliberately never overwrites a
+  // decision-driven draft (see lib/pipeline/finalize.ts). Only checked once
+  // everything else already passes, both to avoid the extra query on an
+  // already-blocked send and to keep this additive for every existing
+  // caller/test that only cares about the other 7 conditions.
+  if (reasons.length === 0 && draft) {
+    const shortlisted = await isCandidateShortlisted(candidateId);
+    const contradicts = (kind === "rejection" && shortlisted) || (kind === "invite" && !shortlisted);
+    if (contradicts && !placementConfirmed) {
+      reasons.push(
+        kind === "rejection"
+          ? "candidate is currently shortlisted by the algorithm; sending a rejection needs explicit confirmation"
+          : "candidate is currently below the shortlist cutoff; sending an invite needs explicit confirmation",
+      );
+    }
   }
 
   return { allowed: reasons.length === 0, reasons, draftId: draft?.id };

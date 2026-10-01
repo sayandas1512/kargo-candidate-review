@@ -22,6 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     kind,
     acknowledgedLowConfidence: body?.acknowledgedLowConfidence === true,
     liveConfirmed: body?.liveConfirmed === true,
+    placementConfirmed: body?.placementConfirmed === true,
   });
   if (!gate.allowed || !gate.draftId) {
     return NextResponse.json({ error: "send is not allowed", reasons: gate.reasons }, { status: 409 });

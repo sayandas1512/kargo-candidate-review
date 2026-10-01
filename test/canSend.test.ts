@@ -21,9 +21,19 @@ vi.mock("@/db", () => ({
   },
 }));
 
+// isCandidateShortlisted does its own multi-query ranking computation
+// (rubric lookup, then a candidates+scores join across every candidate) --
+// mocking the function directly, rather than feeding its queries through the
+// same db.select() queue as everything else, keeps condition-8 tests from
+// having to know its internal call shape.
+const shortlistedMock = vi.hoisted(() => ({ value: false }));
+vi.mock("@/lib/pipeline/finalize", () => ({
+  isCandidateShortlisted: async () => shortlistedMock.value,
+}));
+
 const { canSend } = await import("@/lib/canSend");
 
-const CANDIDATE = { id: "c1", status: "ready", appliedRole: "PM", firstOpenedAt: new Date() };
+const CANDIDATE = { id: "c1", status: "ready", appliedRole: "PM", firstOpenedAt: new Date(), isCalibration: false };
 const ADVANCE_DECISION = { decision: "advance", decidedAt: new Date() };
 const DECLINE_DECISION = { decision: "decline", decidedAt: new Date() };
 const HOLD_DECISION = { decision: "hold", decidedAt: new Date() };
@@ -37,6 +47,10 @@ const GOOD_DRAFT = {
 
 beforeEach(() => {
   queue.rows = [];
+  // Matches the pre-existing tests' implicit assumption (invite to a
+  // shortlisted candidate = no placement contradiction); the one existing
+  // "allows" test on the rejection path overrides this explicitly.
+  shortlistedMock.value = true;
 });
 
 describe("canSend", () => {
@@ -145,6 +159,7 @@ describe("canSend", () => {
   });
 
   it("allows a low-confidence rejection once acknowledged", async () => {
+    shortlistedMock.value = false; // rejection to a not-shortlisted candidate -- no placement contradiction
     queue.rows = [
       [{ ...CANDIDATE, firstOpenedAt: new Date() }],
       [DECLINE_DECISION],
@@ -171,6 +186,58 @@ describe("canSend", () => {
     queue.rows = [[{ ...CANDIDATE, firstOpenedAt: new Date() }], [ADVANCE_DECISION], [GOOD_DRAFT]];
     const result = await canSend({ candidateId: "c1", kind: "invite", liveConfirmed: true });
     process.env.EMAIL_MODE = prev;
+    expect(result.allowed).toBe(true);
+  });
+
+  it("blocks a calibration/test fixture from ever being sent to", async () => {
+    queue.rows = [[{ ...CANDIDATE, isCalibration: true }], [ADVANCE_DECISION], [GOOD_DRAFT]];
+    const result = await canSend({ candidateId: "c1", kind: "invite" });
+    expect(result.allowed).toBe(false);
+    expect(result.reasons.join()).toMatch(/calibration/);
+  });
+
+  it("the exact incident case: a shortlisted candidate with a rejection draft and an Advance decision is blocked", async () => {
+    // Mirrors Sunita Krishnamurthy's trail shape: currently shortlisted
+    // (would matter for condition 8), but the decision/kind mismatch at
+    // condition 4 blocks it first regardless of placement.
+    shortlistedMock.value = true;
+    queue.rows = [[{ ...CANDIDATE, firstOpenedAt: new Date() }], [ADVANCE_DECISION], [{ ...GOOD_DRAFT, kind: "rejection" }]];
+    const result = await canSend({ candidateId: "c1", kind: "rejection" });
+    expect(result.allowed).toBe(false);
+    expect(result.reasons.join()).toMatch(/advance/);
+  });
+
+  it("blocks a rejection to a candidate who is currently shortlisted by the algorithm, even though the decision matches the draft kind", async () => {
+    // The decision (decline) and draft (rejection) agree with each other --
+    // but the shortlist has moved since the decision was made, and nothing
+    // else catches that. This is the actual placement-drift gap, distinct
+    // from the decision/kind mismatch case above.
+    shortlistedMock.value = true;
+    queue.rows = [[{ ...CANDIDATE, firstOpenedAt: new Date() }], [DECLINE_DECISION], [{ ...GOOD_DRAFT, kind: "rejection" }]];
+    const result = await canSend({ candidateId: "c1", kind: "rejection" });
+    expect(result.allowed).toBe(false);
+    expect(result.reasons.join()).toMatch(/shortlisted/);
+  });
+
+  it("allows that same rejection once the placement contradiction is explicitly confirmed", async () => {
+    shortlistedMock.value = true;
+    queue.rows = [[{ ...CANDIDATE, firstOpenedAt: new Date() }], [DECLINE_DECISION], [{ ...GOOD_DRAFT, kind: "rejection" }]];
+    const result = await canSend({ candidateId: "c1", kind: "rejection", placementConfirmed: true });
+    expect(result.allowed).toBe(true);
+  });
+
+  it("blocks an invite to a candidate who is currently below the shortlist cutoff (symmetric case)", async () => {
+    shortlistedMock.value = false;
+    queue.rows = [[{ ...CANDIDATE, firstOpenedAt: new Date() }], [ADVANCE_DECISION], [GOOD_DRAFT]];
+    const result = await canSend({ candidateId: "c1", kind: "invite" });
+    expect(result.allowed).toBe(false);
+    expect(result.reasons.join()).toMatch(/below the shortlist cutoff/);
+  });
+
+  it("allows that same invite once the placement contradiction is explicitly confirmed", async () => {
+    shortlistedMock.value = false;
+    queue.rows = [[{ ...CANDIDATE, firstOpenedAt: new Date() }], [ADVANCE_DECISION], [GOOD_DRAFT]];
+    const result = await canSend({ candidateId: "c1", kind: "invite", placementConfirmed: true });
     expect(result.allowed).toBe(true);
   });
 });

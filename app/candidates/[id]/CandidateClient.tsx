@@ -135,15 +135,32 @@ export default function CandidateClient(props: {
     setBusy(true);
     setMessage(null);
     const check = await fetch(`/api/candidates/${candidate.id}/can-send?kind=${kind}`).then((r) => r.json());
+
+    let placementConfirmed = false;
     if (!check.allowed) {
-      setBusy(false);
-      setMessage(`Send disabled: ${check.reasons.join("; ")}`);
-      return;
+      // The one blocking reason that isn't a hard stop: the candidate's
+      // current algorithmic placement contradicts this draft's kind (e.g. a
+      // decline was correct when it was made, but the shortlist has since
+      // moved and this candidate is back in it). Everything else blocking
+      // the send is a hard stop with no override.
+      const placementReason = (check.reasons as string[]).find((r) => r.includes("needs explicit confirmation"));
+      const onlyPlacementBlocks = check.reasons.length === 1 && placementReason;
+      if (!onlyPlacementBlocks) {
+        setBusy(false);
+        setMessage(`Send disabled: ${check.reasons.join("; ")}`);
+        return;
+      }
+      if (!confirm(`Warning: ${placementReason}.\n\nSend this ${kind} anyway?`)) {
+        setBusy(false);
+        return;
+      }
+      placementConfirmed = true;
     }
+
     const res = await fetch(`/api/candidates/${candidate.id}/send`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind, acknowledgedLowConfidence: ackLowConfidence }),
+      body: JSON.stringify({ kind, acknowledgedLowConfidence: ackLowConfidence, placementConfirmed }),
     });
     setBusy(false);
     if (res.ok) {
