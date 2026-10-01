@@ -108,10 +108,11 @@ export default async function DashboardPage({
       </div>
 
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Metric label="Reviewed" value={data.metrics.reviewedOf60} sub="Baseline was 19 of 60" accent="border-indigo-500" />
+        <Metric label="Decided" value={data.metrics.reviewedOf60} sub="Baseline was 19 of 60" accent="border-indigo-500" />
         <Metric
-          label="Median review time"
+          label="Median time to first open"
           value={data.metrics.medianReviewMinutes !== null ? `${data.metrics.medianReviewMinutes}m` : "No data yet"}
+          sub="Upload to first time a recruiter opened the profile"
           accent="border-sky-500"
         />
         <Metric label="Decisions logged" value={String(data.metrics.decisionsLogged)} accent="border-emerald-500" />

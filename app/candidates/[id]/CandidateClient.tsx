@@ -38,6 +38,7 @@ export default function CandidateClient(props: {
     cvTextRedacted: string | null;
   };
   details: { fullName: string; email: string | null; phone: string | null; links: unknown; originalFilename: string } | null;
+  fileMime: string | null;
   scores: ScoreRow[];
   brief: { who: string; why: string; probe: string; probes: unknown } | null;
   drafts: Draft[];
@@ -45,7 +46,8 @@ export default function CandidateClient(props: {
   rubricNames: { PM: Record<string, string>; SPM: Record<string, string> };
 }) {
   const router = useRouter();
-  const { candidate, details, scores, brief, decisions, rubricNames } = props;
+  const { candidate, details, fileMime, scores, brief, decisions, rubricNames } = props;
+  const canViewInline = fileMime === "application/pdf";
   const [drafts, setDrafts] = useState(props.drafts);
   const [identityName, setIdentityName] = useState("");
   const [identityEmail, setIdentityEmail] = useState("");
@@ -184,10 +186,11 @@ export default function CandidateClient(props: {
         <div className="flex gap-2">
           <a
             href={`/api/candidates/${candidate.id}/file`}
-            target="_blank"
+            target={canViewInline ? "_blank" : undefined}
+            download={canViewInline ? undefined : (details?.originalFilename ?? true)}
             className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
           >
-            View original CV
+            {canViewInline ? "View original CV" : "Download original CV"}
           </a>
           <button
             onClick={deleteCandidate}

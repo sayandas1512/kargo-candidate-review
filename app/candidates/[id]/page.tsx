@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/db";
-import { candidates, candidatePersonalDetails, scores, briefs, emailDrafts, decisions } from "@/db/schema";
+import { candidates, candidatePersonalDetails, candidateFiles, scores, briefs, emailDrafts, decisions } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { getRubricCriteria } from "@/lib/dashboard";
 import CandidateClient from "./CandidateClient";
@@ -13,12 +13,13 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
   const [candidate] = await db.select().from(candidates).where(eq(candidates.id, id));
   if (!candidate) notFound();
 
-  const [details, scoreRows, [brief], draftRows, decisionRows] = await Promise.all([
+  const [details, scoreRows, [brief], draftRows, decisionRows, [file]] = await Promise.all([
     db.select().from(candidatePersonalDetails).where(eq(candidatePersonalDetails.candidateId, id)),
     db.select().from(scores).where(eq(scores.candidateId, id)),
     db.select().from(briefs).where(eq(briefs.candidateId, id)),
     db.select().from(emailDrafts).where(eq(emailDrafts.candidateId, id)),
     db.select().from(decisions).where(eq(decisions.candidateId, id)).orderBy(desc(decisions.decidedAt)),
+    db.select({ mime: candidateFiles.mime }).from(candidateFiles).where(eq(candidateFiles.candidateId, id)),
   ]);
 
   const { criteria: pmCriteria } = await getRubricCriteria("PM");
@@ -28,6 +29,7 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
     <CandidateClient
       candidate={{ ...candidate, createdAt: candidate.createdAt.toISOString(), firstOpenedAt: candidate.firstOpenedAt?.toISOString() ?? null }}
       details={details[0] ?? null}
+      fileMime={file?.mime ?? null}
       scores={scoreRows.map((s) => ({ ...s, createdAt: s.createdAt.toISOString(), weightedTotal: Number(s.weightedTotal) }))}
       brief={brief ?? null}
       drafts={draftRows.map((d) => ({ ...d, createdAt: d.createdAt.toISOString(), sentAt: d.sentAt?.toISOString() ?? null }))}
