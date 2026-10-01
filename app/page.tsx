@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getDashboardData } from "@/lib/dashboard";
+import { getDashboardMetrics } from "@/lib/dashboard-metrics";
 import { scoreTextColor, STATUS_STYLES } from "@/lib/score-colors";
 import { isHighConfidence } from "@/lib/scoring-math";
 
@@ -61,7 +62,7 @@ export default async function DashboardPage({
 }) {
   const { role: rawRole } = await searchParams;
   const role: "PM" | "SPM" = rawRole === "SPM" ? "SPM" : "PM";
-  const data = await getDashboardData(role);
+  const [data, metrics] = await Promise.all([getDashboardData(role), getDashboardMetrics()]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -87,15 +88,20 @@ export default async function DashboardPage({
       </div>
 
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Metric label="Decided" value={data.metrics.reviewedOf60} sub="Baseline was 19 of 60" accent="border-indigo-500" />
         <Metric
-          label="Median time to first open"
-          value={data.metrics.medianReviewMinutes !== null ? `${data.metrics.medianReviewMinutes}m` : "No data yet"}
-          sub="Upload to first time a recruiter opened the profile"
+          label="Reviewed"
+          value={`${metrics.reviewed.opened} of ${metrics.reviewed.total}`}
+          sub="Baseline was 19 of 60"
+          accent="border-indigo-500"
+        />
+        <Metric
+          label="Median review time"
+          value={metrics.medianReviewMinutes !== null ? `${metrics.medianReviewMinutes}m` : "-"}
+          sub="From opening a profile to a decision. Goal: under 10 minutes"
           accent="border-sky-500"
         />
-        <Metric label="Decisions logged" value={String(data.metrics.decisionsLogged)} accent="border-emerald-500" />
-        <Metric label="Drafts awaiting review" value={String(data.metrics.draftsAwaitingReview)} accent="border-amber-500" />
+        <Metric label="Decisions logged" value={String(metrics.decisionsLogged)} accent="border-emerald-500" />
+        <Metric label="Drafts awaiting review" value={String(metrics.draftsAwaitingReview)} accent="border-amber-500" />
       </div>
 
       <section className="mb-8">

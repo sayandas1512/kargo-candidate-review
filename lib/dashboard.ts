@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { candidates, candidatePersonalDetails, scores, decisions, emailDrafts, rubrics } from "@/db/schema";
+import { candidates, candidatePersonalDetails, scores, emailDrafts, rubrics } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { rankCandidates, highestWeightCriterionKey, shortlistSize, type RankableScore } from "./rank";
 
@@ -67,7 +67,7 @@ export async function getDashboardData(role: "PM" | "SPM") {
     })
     .from(emailDrafts)
     .innerJoin(candidates, eq(candidates.id, emailDrafts.candidateId))
-    .where(eq(candidates.appliedRole, role));
+    .where(and(eq(candidates.appliedRole, role), eq(candidates.isCalibration, false)));
 
   // A candidate can end up with more than one draft over time (e.g. a sent
   // invite plus a later rejection after demoteCandidate) -- the dashboard
@@ -101,41 +101,10 @@ export async function getDashboardData(role: "PM" | "SPM") {
       ),
     );
 
-  const allForRole = await db
-    .select({ id: candidates.id })
-    .from(candidates)
-    .where(and(eq(candidates.appliedRole, role), eq(candidates.isCalibration, false)));
-
-  const decidedCount = await db
-    .select({ candidateId: decisions.candidateId })
-    .from(decisions)
-    .innerJoin(candidates, eq(candidates.id, decisions.candidateId))
-    .where(eq(candidates.appliedRole, role));
-
-  const uniqueDecided = new Set(decidedCount.map((d) => d.candidateId)).size;
-
-  const openTimes = rows.filter((r) => r.firstOpenedAt).map((r) => r.firstOpenedAt!.getTime() - r.createdAt.getTime());
-  const medianReviewMs =
-    openTimes.length > 0
-      ? [...openTimes].sort((a, b) => a - b)[Math.floor(openTimes.length / 2)]
-      : null;
-
-  const draftsAwaiting = await db
-    .select({ id: emailDrafts.id })
-    .from(emailDrafts)
-    .innerJoin(candidates, eq(candidates.id, emailDrafts.candidateId))
-    .where(and(eq(candidates.appliedRole, role), eq(emailDrafts.status, "draft")));
-
   return {
     nameByKey,
     shortlist,
     belowTheLine,
     needsReview,
-    metrics: {
-      reviewedOf60: `${uniqueDecided} of ${allForRole.length}`,
-      medianReviewMinutes: medianReviewMs !== null ? Math.round(medianReviewMs / 60000) : null,
-      decisionsLogged: uniqueDecided,
-      draftsAwaitingReview: draftsAwaiting.length,
-    },
   };
 }
