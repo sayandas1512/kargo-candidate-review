@@ -460,7 +460,18 @@ function DraftEditor(props: {
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-lg font-semibold capitalize text-gray-900">{draft.kind} draft</h2>
         <div className="flex items-center gap-2 text-xs text-gray-400">
-          <span className={`rounded-full px-2 py-0.5 font-medium ${statusColor}`}>{draft.status}</span>
+          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${statusColor}`}>
+            {draft.status === "sent" && (
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-3 w-3">
+                <path
+                  fillRule="evenodd"
+                  d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            )}
+            {draft.status}
+          </span>
           <span>{draft.source}</span>
           {draft.sentTo && <span>sent to {draft.sentTo}</span>}
         </div>
@@ -504,11 +515,20 @@ function DraftEditor(props: {
         <button
           onClick={onSend}
           disabled={busy || draft.status === "sent"}
-          className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-40 ${
+          className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-40 ${
             draft.kind === "invite" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"
           }`}
         >
-          {draft.status === "sent" ? "Sent" : "Confirm & send"}
+          {draft.status === "sent" && (
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+              <path
+                fillRule="evenodd"
+                d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
+                clipRule="evenodd"
+              />
+            </svg>
+          )}
+          {draft.status === "sent" ? "Email sent" : "Confirm & send"}
         </button>
       </div>
       {draft.error && <p className="mt-2 text-xs font-medium text-rose-600">{draft.error}</p>}

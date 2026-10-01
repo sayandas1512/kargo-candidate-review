@@ -87,18 +87,12 @@ export default async function DashboardPage({
         </div>
       </div>
 
-      <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Metric
           label="Reviewed"
           value={`${metrics.reviewed.opened} of ${metrics.reviewed.total}`}
           sub="Baseline was 19 of 60"
           accent="border-indigo-500"
-        />
-        <Metric
-          label="Median review time"
-          value={metrics.medianReviewMinutes !== null ? `${metrics.medianReviewMinutes}m` : "-"}
-          sub="From opening a profile to a decision. Goal: under 10 minutes"
-          accent="border-sky-500"
         />
         <Metric label="Decisions logged" value={String(metrics.decisionsLogged)} accent="border-emerald-500" />
         <Metric label="Drafts awaiting review" value={String(metrics.draftsAwaitingReview)} accent="border-amber-500" />
