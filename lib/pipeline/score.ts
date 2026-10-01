@@ -52,8 +52,21 @@ export async function runScoreStage(candidateId: string): Promise<void> {
   const model = process.env.GEMINI_MODEL;
   if (!model) throw new Error("GEMINI_MODEL is not set");
   const passes = parseInt(process.env.SCORING_PASSES ?? "2", 10) || 2;
+  // Re-bind as definitely-typed locals -- TS doesn't carry the narrowing
+  // from the guards above through into the nested closure below.
+  const geminiModel: string = model;
+  const redactedText: string = candidate.cvTextRedacted;
+  const content = cvContent;
 
-  for (const role of ["PM", "SPM"] as const) {
+  // PM and SPM scoring are fully independent (different rubric, no shared
+  // mutable state) -- running them concurrently instead of sequentially
+  // roughly halves this stage's latency on top of the pass1/pass2
+  // parallelization inside scoreCandidateAgainstRubric. If one role fails,
+  // the other's result (if it succeeded) is still persisted -- status only
+  // advances to "scored" once both have completed without throwing, so a
+  // retry behaves exactly as before (whichever role already has a row is a
+  // cheap onConflictDoUpdate, not wasted work).
+  async function scoreOneRole(role: "PM" | "SPM"): Promise<void> {
     const started = Date.now();
     try {
       const { version, criteria } = await getActiveRubric(role);
@@ -63,18 +76,18 @@ export async function runScoreStage(candidateId: string): Promise<void> {
         doNotReward: criteria[0]?.do_not_reward ?? [],
         doNotPenalise: criteria[0]?.do_not_penalise ?? [],
         scorerInput,
-        redactedText: candidate.cvTextRedacted,
+        redactedText,
         identity,
-        model,
+        model: geminiModel,
         passes,
       });
 
       const flags = [...result.flags];
-      const notMumbai = !cvContent.location_stated || !/mumbai/i.test(cvContent.location_stated);
-      if (notMumbai && !cvContent.relocation_stated) {
+      const notMumbai = !content.location_stated || !/mumbai/i.test(content.location_stated);
+      if (notMumbai && !content.relocation_stated) {
         flags.push("location_not_mumbai_no_relocation");
       }
-      if (isExperienceOutsideRange(cvContent.total_years_experience, role)) {
+      if (isExperienceOutsideRange(content.total_years_experience, role)) {
         flags.push("experience_years_outside_range");
       }
 
@@ -84,7 +97,7 @@ export async function runScoreStage(candidateId: string): Promise<void> {
           candidateId,
           role,
           rubricVersion: version,
-          model,
+          model: geminiModel,
           criteria: result.criteria,
           weightedTotal: result.weightedTotal.toString(),
           flags,
@@ -98,7 +111,7 @@ export async function runScoreStage(candidateId: string): Promise<void> {
         .onConflictDoUpdate({
           target: [scores.candidateId, scores.role, scores.rubricVersion],
           set: {
-            model,
+            model: geminiModel,
             criteria: result.criteria,
             weightedTotal: result.weightedTotal.toString(),
             flags,
@@ -110,18 +123,20 @@ export async function runScoreStage(candidateId: string): Promise<void> {
         event: "score.ok",
         candidateId,
         actor: "system",
-        meta: { stage: "score", role, model, durationMs: Date.now() - started, ok: true, weightedTotal: result.weightedTotal },
+        meta: { stage: "score", role, model: geminiModel, durationMs: Date.now() - started, ok: true, weightedTotal: result.weightedTotal },
       });
     } catch (err) {
       await logAudit({
         event: "score.failed",
         candidateId,
         actor: "system",
-        meta: { stage: "score", role, model, durationMs: Date.now() - started, ok: false, error: String(err) },
+        meta: { stage: "score", role, model: geminiModel, durationMs: Date.now() - started, ok: false, error: String(err) },
       });
       throw err;
     }
   }
+
+  await Promise.all((["PM", "SPM"] as const).map(scoreOneRole));
 
   await db.update(candidates).set({ status: "scored" }).where(eq(candidates.id, candidateId));
 }

@@ -198,8 +198,14 @@ export async function scoreCandidateAgainstRubric(params: {
   const reversedCriteria = [...criteria].reverse();
   const systemInstructionReversed = buildScorerSystemPrompt(reversedCriteria, doNotReward, doNotPenalise);
 
-  const pass1 = await groundedPass(criteria, systemInstruction, scorerInput, identity, redactedText);
-  const pass2 = await groundedPass(reversedCriteria, systemInstructionReversed, scorerInput, identity, redactedText);
+  // The two passes are fully independent (different criteria order, no
+  // shared state) -- running them concurrently instead of one after the
+  // other roughly halves scoring latency with no change to the grounding
+  // or retry logic itself.
+  const [pass1, pass2] = await Promise.all([
+    groundedPass(criteria, systemInstruction, scorerInput, identity, redactedText),
+    groundedPass(reversedCriteria, systemInstructionReversed, scorerInput, identity, redactedText),
+  ]);
 
   const flags = new Set<string>();
   let ungroundedAny = false;
