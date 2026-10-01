@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { candidates, candidatePersonalDetails, rubrics, scores, briefs, emailDrafts } from "@/db/schema";
+import { candidates, candidatePersonalDetails, rubrics, scores, briefs, emailDrafts, decisions } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { rankCandidates, highestWeightCriterionKey, shortlistSize, type RankableScore } from "../rank";
 import { generateBrief, type RubricCriterionWithProbe } from "../ai/brief";
@@ -151,8 +151,29 @@ export async function runFinalizeStage(): Promise<{ processed: number }> {
     const ranked = rankCandidates(rankable, topKey);
     const shortlistIds = new Set(ranked.slice(0, shortlistSize()).map((r) => r.candidateId));
 
+    // A candidate Arjun has already decided on (via /decision, which itself calls
+    // promoteCandidate/demoteCandidate for an against-placement call) must not have
+    // finalize silently regenerate -- or worse, delete -- the draft that decision
+    // produced just because the algorithmic shortlist moved after a later upload.
+    // hold and "in-line-with-placement" decisions fall through to the algorithmic
+    // default below, same as no decision at all.
+    const latestDecisionRowByCandidate = new Map<string, { decision: "advance" | "hold" | "decline"; decidedAt: Date }>();
+    if (rows.length > 0) {
+      const decisionRows = await db
+        .select({ candidateId: decisions.candidateId, decision: decisions.decision, decidedAt: decisions.decidedAt })
+        .from(decisions)
+        .where(inArray(decisions.candidateId, rows.map((r) => r.candidateId)));
+      for (const d of decisionRows) {
+        const existing = latestDecisionRowByCandidate.get(d.candidateId);
+        if (!existing || d.decidedAt > existing.decidedAt) latestDecisionRowByCandidate.set(d.candidateId, d);
+      }
+    }
+
     await mapWithConcurrency(rows, 3, async (row) => {
-      const desiredKind: "invite" | "rejection" = shortlistIds.has(row.candidateId) ? "invite" : "rejection";
+      const decision = latestDecisionRowByCandidate.get(row.candidateId)?.decision;
+      let desiredKind: "invite" | "rejection" = shortlistIds.has(row.candidateId) ? "invite" : "rejection";
+      if (decision === "advance") desiredKind = "invite";
+      else if (decision === "decline") desiredKind = "rejection";
       const cvContent = row.cvContent as { roles: { title: string; employer: string }[]; skills: string[] };
       const identity = { fullName: row.fullName, email: row.email, phone: row.phone };
 
