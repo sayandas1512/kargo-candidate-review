@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { decisions } from "@/db/schema";
-import { isCandidateShortlisted, demoteCandidate } from "@/lib/pipeline/finalize";
+import { isCandidateShortlisted, demoteCandidate, promoteCandidate } from "@/lib/pipeline/finalize";
 import { logAudit } from "@/lib/audit";
 
 const VALID_DECISIONS = ["advance", "hold", "decline"] as const;
@@ -35,11 +35,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   await logAudit({ event: "decision.recorded", candidateId: id, actor: "arjun", meta: { decision, decisionId: row.id } });
 
-  // Declining a still-shortlisted candidate leaves finalize's invite draft
-  // stranded with nothing matching it to send -- swap it for a rejection
-  // draft so canSend has the right kind to work with.
+  // Declining a still-shortlisted candidate, or advancing one still below
+  // the cutoff, leaves finalize's draft stranded as the wrong kind -- swap
+  // it to match so canSend has the right kind to work with. Both ensureDraft
+  // calls underneath only ever delete an UNSENT stale draft (status !=
+  // "sent"); a draft that's already gone out is never touched.
   if (decision === "decline" && shortlisted) {
     await demoteCandidate(id);
+  } else if (decision === "advance" && !shortlisted) {
+    await promoteCandidate(id);
   }
 
   return NextResponse.json({ ok: true });
