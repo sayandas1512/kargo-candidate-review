@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getDashboardData } from "@/lib/dashboard";
-import { scoreTextColor, scoreDotColor, STATUS_STYLES } from "@/lib/score-colors";
+import { scoreTextColor, STATUS_STYLES } from "@/lib/score-colors";
 import { isHighConfidence } from "@/lib/scoring-math";
 
 export const dynamic = "force-dynamic";
@@ -39,20 +39,6 @@ function RankBadge({ rank }: { rank: number }) {
           ? "bg-orange-300 text-orange-900"
           : "bg-gray-100 text-gray-500";
   return <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${style}`}>{rank}</span>;
-}
-
-function ScoreDots({ criteria, nameByKey }: { criteria: Criterion[]; nameByKey: Map<string, string> }) {
-  return (
-    <div className="flex gap-1">
-      {criteria.map((c) => (
-        <span
-          key={c.criterion_key}
-          title={`${nameByKey.get(c.criterion_key) ?? c.criterion_key}: ${c.score}/4${c.evidence_quote ? `. "${c.evidence_quote}"` : ""}`}
-          className={`h-2.5 w-2.5 rounded-full ${scoreDotColor(c.score)}`}
-        />
-      ))}
-    </div>
-  );
 }
 
 // Dashboard rows only ever show the confidence verdict -- the specific flags behind it
@@ -131,15 +117,12 @@ export default async function DashboardPage({
                   <div className={`w-14 shrink-0 text-xl font-bold ${scoreTextColor(total)}`}>{total.toFixed(1)}</div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold text-gray-900">{c.fullName || "Name pending confirmation"}</div>
-                    <div className="mb-1 flex items-center gap-2">
-                      <ScoreDots criteria={criteria} nameByKey={data.nameByKey} />
-                      {top && (
-                        <span className="truncate text-sm text-gray-600">
-                          <span className="font-medium text-gray-800">{data.nameByKey.get(top.criterion_key) ?? top.criterion_key}</span>
-                          {top.evidence_quote && <span className="text-gray-500"> &ldquo;{top.evidence_quote}&rdquo;</span>}
-                        </span>
-                      )}
-                    </div>
+                    {top && (
+                      <div className="mb-1 truncate text-sm text-gray-600">
+                        <span className="font-medium text-gray-800">{data.nameByKey.get(top.criterion_key) ?? top.criterion_key}</span>
+                        {top.evidence_quote && <span className="text-gray-500"> &ldquo;{top.evidence_quote}&rdquo;</span>}
+                      </div>
+                    )}
                     <ConfidencePill lowConfidence={c.lowConfidence} weightedTotal={total} />
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
@@ -172,15 +155,12 @@ export default async function DashboardPage({
                   <div className={`w-14 shrink-0 text-lg font-semibold ${scoreTextColor(total)}`}>{total.toFixed(1)}</div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold text-gray-900">{c.fullName || "Name pending confirmation"}</div>
-                    <div className="mb-1 flex items-center gap-2">
-                      <ScoreDots criteria={criteria} nameByKey={data.nameByKey} />
-                      {top && (
-                        <span className="truncate text-sm text-gray-600">
-                          <span className="font-medium text-gray-800">{data.nameByKey.get(top.criterion_key) ?? top.criterion_key}</span>
-                          {top.evidence_quote && <span className="text-gray-500"> &ldquo;{top.evidence_quote}&rdquo;</span>}
-                        </span>
-                      )}
-                    </div>
+                    {top && (
+                      <div className="mb-1 truncate text-sm text-gray-600">
+                        <span className="font-medium text-gray-800">{data.nameByKey.get(top.criterion_key) ?? top.criterion_key}</span>
+                        {top.evidence_quote && <span className="text-gray-500"> &ldquo;{top.evidence_quote}&rdquo;</span>}
+                      </div>
+                    )}
                     <ConfidencePill lowConfidence={c.lowConfidence} weightedTotal={total} />
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">

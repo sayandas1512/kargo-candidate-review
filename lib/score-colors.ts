@@ -5,10 +5,6 @@ export function scoreTextColor(total: number): string {
   return "text-rose-600";
 }
 
-export function scoreDotColor(score: number): string {
-  return ["bg-gray-200", "bg-rose-400", "bg-amber-400", "bg-lime-500", "bg-emerald-500"][score] ?? "bg-gray-200";
-}
-
 export function scoreBarColor(score: number): string {
   return ["bg-gray-300", "bg-rose-400", "bg-amber-400", "bg-lime-500", "bg-emerald-500"][score] ?? "bg-gray-300";
 }

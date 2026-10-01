@@ -5,6 +5,7 @@ import { candidatePersonalDetails, emailDrafts } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { canSend } from "@/lib/canSend";
 import { logAudit } from "@/lib/audit";
+import { textToEmailHtml } from "@/lib/email-format";
 
 export const maxDuration = 60;
 
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       to,
       subject,
       text: personalizedBody,
+      html: textToEmailHtml(personalizedBody),
     });
 
     if (error) throw new Error(error.message);
